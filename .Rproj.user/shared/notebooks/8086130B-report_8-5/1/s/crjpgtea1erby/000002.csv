@@ -1,0 +1,28 @@
+"0","# Now, let's look at duplicates among sponsors! --------------------------------------------"
+"0",""
+"0","sponsors <- read_csv('sponsors_info.csv')"
+"2","Duplicated column names deduplicated: 'id' => 'id_1' [11], 'created_at' => 'created_at_1' [15], 'updated_at' => 'updated_at_1' [16], 'id' => 'id_2' [18], 'sponsor_id' => 'sponsor_id_1' [19], 'verified' => 'verified_1' [20], 'created_at' => 'created_at_2' [22], 'updated_at' => 'updated_at_2' [23]"
+"2","Parsed with column specification:
+cols(
+  .default = col_double(),
+  first_name = [31mcol_character()[39m,
+  last_name = [31mcol_character()[39m,
+  password_hash = [31mcol_character()[39m,
+  created_at = [34mcol_datetime(format = """")[39m,
+  updated_at = [34mcol_datetime(format = """")[39m,
+  salt = [31mcol_character()[39m,
+  email = [31mcol_character()[39m,
+  created_at_1 = [34mcol_datetime(format = """")[39m,
+  updated_at_1 = [34mcol_datetime(format = """")[39m,
+  verification_sent_at = [34mcol_datetime(format = """")[39m,
+  created_at_2 = [34mcol_datetime(format = """")[39m,
+  updated_at_2 = [34mcol_datetime(format = """")[39m
+)
+"
+"2","See spec(...) for full column specifications.
+"
+"2","2 parsing failures.
+  row          col               expected       actual                file
+10979 phone_number no trailing characters +61456681111 'sponsors_info.csv'
+64319 phone_number no trailing characters +50230904970 'sponsors_info.csv'
+"

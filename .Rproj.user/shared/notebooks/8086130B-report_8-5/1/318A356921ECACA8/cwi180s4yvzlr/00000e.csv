@@ -1,0 +1,134 @@
+"0","
+results <- list()
+for(i in 1:length(unique(for_RL$block))){
+  ## 1. Subset original data to form block
+  for_RL.b <- for_RL[for_RL$block == i, ]
+
+  ## 2. fastLink applied to a block
+  matches_FastLink <- fastLink(
+    dfA = for_RL.b, dfB = for_RL.b,
+    varnames = c(""first_name"", ""last_name"", ""email"", ""age""),
+    stringdist.match = c(""first_name"", ""last_name"", ""email""),
+    numeric.match = 'age',
+    partial.match = c(""first_name"", ""last_name"", ""email""),
+    cut.a = 0.94, cut.p = 0.84,
+    dedupe = FALSE ## this is to avoid a one-to-one match
+  )
+ 
+  ## 3. Get the data
+  records.temp <- getMatches(dfA = for_RL.b,
+                             dfB = for_RL.b,
+                             fl.out = matches_FastLink)
+ 
+  ## 4. Adjust the unique identifier to be block specific
+  records.temp$dedupe.ids <- paste0(""B"", i, ""_"",
+                                    records.temp$dedupe.ids)
+  ## 5. Store the deduplicated data
+  results[[i]] <- records.temp
+  rm(records.temp, for_RL.b); gc() ## remove temp objects
+}
+"
+"1","
+"
+"1","===================="
+"1"," "
+"1","
+"
+"1","fastLink(): Fast Probabilistic Record Linkage
+"
+"1","===================="
+"1"," "
+"1","
+
+"
+"1","If you set return.all to FALSE, you will not be able to calculate a confusion table as a summary statistic.
+"
+"1","dfA and dfB are identical, assuming deduplication of a single data set.
+Setting return.all to FALSE.
+
+"
+"1","Calculating matches for each variable.
+"
+"2","Warning in UseMethod(""summary"") :"
+"2","
+ "
+"2"," closing unused connection 10 (<-DESKTOP-BQTENBN:11410)
+"
+"2","Warning in UseMethod(""summary"") :"
+"2","
+ "
+"2"," closing unused connection 9 (<-DESKTOP-BQTENBN:11410)
+"
+"2","Warning in UseMethod(""summary"") :"
+"2","
+ "
+"2"," closing unused connection 8 (<-DESKTOP-BQTENBN:11410)
+"
+"2","Warning in UseMethod(""summary"") :"
+"2","
+ "
+"2"," closing unused connection 7 (<-DESKTOP-BQTENBN:11410)
+"
+"2","Warning in UseMethod(""summary"") :"
+"2","
+ "
+"2"," closing unused connection 6 (<-DESKTOP-BQTENBN:11410)
+"
+"2","Warning in UseMethod(""summary"") :"
+"2","
+ "
+"2"," closing unused connection 5 (<-DESKTOP-BQTENBN:11410)
+"
+"2","Warning in UseMethod(""summary"") :"
+"2","
+ "
+"2"," closing unused connection 4 (<-DESKTOP-BQTENBN:11410)
+"
+"2","Warning:"
+"2"," closing unused connection 10 (<-DESKTOP-BQTENBN:11410)
+"
+"2","Warning:"
+"2"," closing unused connection 9 (<-DESKTOP-BQTENBN:11410)
+"
+"2","Warning:"
+"2"," closing unused connection 8 (<-DESKTOP-BQTENBN:11410)
+"
+"2","Warning:"
+"2"," closing unused connection 7 (<-DESKTOP-BQTENBN:11410)
+"
+"2","Warning:"
+"2"," closing unused connection 6 (<-DESKTOP-BQTENBN:11410)
+"
+"2","Warning:"
+"2"," closing unused connection 5 (<-DESKTOP-BQTENBN:11410)
+"
+"2","Warning:"
+"2"," closing unused connection 4 (<-DESKTOP-BQTENBN:11410)
+"
+"2","
+Attaching package: ‘stringdist’
+
+"
+"2","The following object is masked from ‘package:tidyr’:
+
+    extract
+
+"
+"2","
+Attaching package: ‘Matrix’
+
+"
+"2","The following objects are masked from ‘package:tidyr’:
+
+    expand, pack, unpack
+
+"
+"1","Getting counts for parameter estimation.
+"
+"1","    Parallelizing calculation using OpenMP. "
+"1","7"
+"1"," threads out of "
+"1","8"
+"1"," are used."
+"1","
+"

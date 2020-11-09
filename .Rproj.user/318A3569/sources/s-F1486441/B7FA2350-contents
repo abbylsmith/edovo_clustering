@@ -1,0 +1,32 @@
+library(data.tree)
+library(jsonlite)
+library(magrittr)
+default_map<- fromJSON('new_default_map.json', simplifyDataFrame = FALSE)
+
+
+default_map<-as.Node(default_map)
+print(default_map, "id", "title")
+
+
+parsed_json <- default_map %>%
+  ToDataFrameTable(tag_ID='id', 'title', parent_ID= function(x) x$parentId, course_type='type',
+                                          total_nodes= 'total') %>% 
+  distinct() %>%
+  arrange(tag_ID)
+
+write_csv(parsed_json, 'parsed_json.csv')
+
+course_tags %>% pivot_longer(cols=starts_with('tag'), names_to='tag', values_to ='name') %>%
+   fuzzy_left_join(parsed_json, by=c('name'= 'title'))
+
+
+parsed_json <- read_csv('parsed_json.csv')
+
+
+course_tags%>% select(-vars(starts_with('name'))) %>%
+  pivot_longer(
+    cols = starts_with("id"), 
+    names_to = "id_name", 
+    values_to = "id_number",
+    names_prefix = "id",
+    values_drop_na = TRUE) %>% select(id_name, id_number)

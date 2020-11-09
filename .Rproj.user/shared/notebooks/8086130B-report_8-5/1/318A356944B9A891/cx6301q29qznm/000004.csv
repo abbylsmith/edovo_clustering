@@ -1,0 +1,59 @@
+"0","#---- construct network (set vertices, edges)"
+"0",""
+"0","contacts <- read_csv('contact_network.csv')"
+"2","Parsed with column specification:
+cols(
+  id = [32mcol_double()[39m,
+  inmate_id = [32mcol_double()[39m,
+  sponsor_id = [32mcol_double()[39m,
+  status = [31mcol_character()[39m,
+  created_at = [34mcol_datetime(format = """")[39m,
+  updated_at = [34mcol_datetime(format = """")[39m,
+  sponsor_block = [32mcol_double()[39m,
+  admin_block = [32mcol_double()[39m,
+  latest_message_id = [32mcol_double()[39m,
+  pan_contact_id = [33mcol_logical()[39m,
+  display_email = [33mcol_logical()[39m,
+  display_phone_number = [33mcol_logical()[39m
+)
+"
+"2","213719 parsing failures.
+ row                  col           expected       actual                  file
+1646 display_phone_number 1/0/T/F/TRUE/FALSE 260-316-2717 'contact_network.csv'
+1650 display_phone_number 1/0/T/F/TRUE/FALSE 260-316-0523 'contact_network.csv'
+1767 display_phone_number 1/0/T/F/TRUE/FALSE 260-577-0397 'contact_network.csv'
+1850 display_phone_number 1/0/T/F/TRUE/FALSE 260-316-7386 'contact_network.csv'
+1926 display_phone_number 1/0/T/F/TRUE/FALSE 260-243-9914 'contact_network.csv'
+.... .................... .................. ............ .....................
+See problems(...) for more details.
+"
+"0","contacts_for_igraph <- contacts %>%"
+"0","  filter(status == 'ACTIVE') %>%"
+"0","  left_join(edovo_user_data, by= c(""inmate_id""= ""id"")) %>%"
+"0","  left_join(facility_ID_orig %>% select(id, name), by = c(""facility_id""=""id"")) %>%"
+"0","  group_by(facility_id)  %>% "
+"0","  filter(n() > 5000) %>% #bigger facilities for now"
+"0","  select(inmate_id, sponsor_id) %>%"
+"0","  group_split(.keep=F)"
+"2","Adding missing grouping variables: `facility_id`
+"
+"0","contact_graphs <-map(contacts_for_igraph, function(x) igraph::graph_from_data_frame(x))"
+"2","In `d' `NA' elements were replaced with string ""NA"""
+"2","In `d' `NA' elements were replaced with string ""NA"""
+"2","In `d' `NA' elements were replaced with string ""NA"""
+"2","In `d' `NA' elements were replaced with string ""NA"""
+"2","In `d' `NA' elements were replaced with string ""NA"""
+"0"," "
+"0",""
+"0","## ------------------------------------------------------------------------"
+"0","sna_g <- igraph::get.adjacency(contact_graphs[[1]], sparse=FALSE) %>%"
+"0","  network::as.network.matrix()"
+"2","
+"
+"2","
+"
+"0","# this detaching is a necessary step since the two packages have some same function names"
+"0","# R is often confuesed"
+"0","detach('package:igraph')"
+"2","Error in detach(""package:igraph"") : invalid 'name' argument
+"

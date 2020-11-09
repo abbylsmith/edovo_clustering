@@ -1,0 +1,149 @@
+"0","## Let's brake the data into quintiles of age
+quant <- quantile(for_RL$age, p = seq(0, 1, by = 1/5))
+for_RL$block <- NA
+for_RL$block[for_RL$age < quant[2]] <- 1
+for_RL$block[for_RL$age >= quant[2] & for_RL$age < quant[3]] <- 2
+for_RL$block[for_RL$age >= quant[3] & for_RL$age < quant[4]] <- 3
+for_RL$block[for_RL$age >= quant[4] & for_RL$age < quant[5]] <- 4
+for_RL$block[for_RL$age >= quant[5] & for_RL$age < quant[6]] <- 5
+for_RL$block[for_RL$age >= quant[5] & for_RL$age < quant[6]] <- 5
+for_RL$block[for_RL$age >= quant[6] & for_RL$age < quant[7]] <- 6
+for_RL$block[for_RL$age >= quant[7] & for_RL$age < quant[8]] <- 7
+for_RL$block[for_RL$age >= quant[8] & for_RL$age < quant[9]] <- 8
+for_RL$block[for_RL$age >= quant[9] & for_RL$age < quant[10]] <- 9
+for_RL$block[for_RL$age >= quant[9] & for_RL$age < quant[10]] <- 9
+for_RL$block[for_RL$age >= quant[10]] <- 10
+"
+"2","
+"
+"2","
+"
+"0","for_RL$block[for_RL$age >= quant[10]] <- 10"
+"0",""
+"0","results <- list()"
+"0","for(i in 5:length(unique(for_RL$block))){"
+"0","  ## 1. Subset original data to form block"
+"0","  for_RL.b <- for_RL[for_RL$block == i, ]"
+"0",""
+"0","  ## 2. fastLink applied to a block"
+"0","  matches_FastLink <- fastLink("
+"0","    dfA = for_RL.b, dfB = for_RL.b,"
+"0","    varnames = c(""first_name"", ""last_name"", ""email"", ""age""),"
+"0","    stringdist.match = c(""first_name"", ""last_name"", ""email""),"
+"0","    numeric.match = 'age',"
+"0","    partial.match = c(""first_name"", ""last_name"", ""email""),"
+"0","    cut.a = 0.94, cut.p = 0.84,"
+"0","    dedupe = FALSE ## this is to avoid a one-to-one match"
+"0","  )"
+"0"," "
+"0","  ## 3. Get the data"
+"0","  records.temp <- getMatches(dfA = for_RL.b,"
+"0","                             dfB = for_RL.b,"
+"0","                             fl.out = matches_FastLink)"
+"0"," "
+"0","  ## 4. Adjust the unique identifier to be block specific"
+"0","  records.temp$dedupe.ids <- paste0(""B"", i, ""_"","
+"0","                                    records.temp$dedupe.ids)"
+"0","  ## 5. Store the deduplicated data"
+"0","  results[[i]] <- records.temp"
+"0","  rm(records.temp, for_RL.b); gc() ## remove temp objects"
+"0","}"
+"1","
+"
+"1","===================="
+"1"," "
+"1","
+"
+"1","fastLink(): Fast Probabilistic Record Linkage
+"
+"1","===================="
+"1"," "
+"1","
+
+"
+"1","If you set return.all to FALSE, you will not be able to calculate a confusion table as a summary statistic.
+"
+"1","dfA and dfB are identical, assuming deduplication of a single data set.
+Setting return.all to FALSE.
+
+"
+"1","Calculating matches for each variable.
+"
+"2","Warning in .Internal(gc(verbose, reset, full)) :"
+"2","
+ "
+"2"," closing unused connection 7 (<-DESKTOP-BQTENBN:11033)
+"
+"2","Warning in .Internal(gc(verbose, reset, full)) :"
+"2","
+ "
+"2"," closing unused connection 6 (<-DESKTOP-BQTENBN:11033)
+"
+"2","Warning in .Internal(gc(verbose, reset, full)) :"
+"2","
+ "
+"2"," closing unused connection 5 (<-DESKTOP-BQTENBN:11033)
+"
+"2","Warning in .Internal(gc(verbose, reset, full)) :"
+"2","
+ "
+"2"," closing unused connection 4 (<-DESKTOP-BQTENBN:11033)
+"
+"2","
+Attaching package: ‘stringdist’
+
+"
+"2","The following object is masked from ‘package:tidyr’:
+
+    extract
+
+"
+"2","Warning in .Internal(gc(verbose, reset, full)) :"
+"2","
+ "
+"2"," closing unused connection 14 (<-DESKTOP-BQTENBN:11033)
+"
+"2","Warning in .Internal(gc(verbose, reset, full)) :"
+"2","
+ "
+"2"," closing unused connection 13 (<-DESKTOP-BQTENBN:11033)
+"
+"2","Warning in .Internal(gc(verbose, reset, full)) :"
+"2","
+ "
+"2"," closing unused connection 12 (<-DESKTOP-BQTENBN:11033)
+"
+"2","Warning in .Internal(gc(verbose, reset, full)) :"
+"2","
+ "
+"2"," closing unused connection 11 (<-DESKTOP-BQTENBN:11033)
+"
+"2","Warning in .Internal(gc(verbose, reset, full)) :"
+"2","
+ "
+"2"," closing unused connection 10 (<-DESKTOP-BQTENBN:11033)
+"
+"2","Warning in .Internal(gc(verbose, reset, full)) :"
+"2","
+ "
+"2"," closing unused connection 9 (<-DESKTOP-BQTENBN:11033)
+"
+"2","Warning in .Internal(gc(verbose, reset, full)) :"
+"2","
+ "
+"2"," closing unused connection 8 (<-DESKTOP-BQTENBN:11033)
+"
+"2","Warning:"
+"2"," closing unused connection 7 (<-DESKTOP-BQTENBN:11033)
+"
+"2","Warning:"
+"2"," closing unused connection 6 (<-DESKTOP-BQTENBN:11033)
+"
+"2","Warning:"
+"2"," closing unused connection 5 (<-DESKTOP-BQTENBN:11033)
+"
+"2","Warning:"
+"2"," closing unused connection 4 (<-DESKTOP-BQTENBN:11033)
+"
+"2","
+"

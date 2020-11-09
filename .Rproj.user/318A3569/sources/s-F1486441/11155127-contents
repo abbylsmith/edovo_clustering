@@ -1,0 +1,41 @@
+A <- c(9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20)
+NC <- c(18,40,40,64,41,29,12,8,7,10,6,6)
+df.ANC = as.vector(rep(A, NC))
+hist(df.ANC, main="Age (in months) of free (unassisted) walking amoung children",
+     xlab="Age (in months)", breaks=c(8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20))
+
+y.s <- mean(df.ANC) #sample mean
+y.s
+
+n <- length(df.ANC) #number in sample
+n
+
+s.2 <- (sum((df.ANC-y.s)^2))/(n-1) #s^2 of sample
+s.2
+
+s <- sqrt(s.2) #standard deviation of sample
+A <- 1/(n-1)
+B <- sum((df.ANC-y.s)^3)
+C <- s^3
+g1 <- (A*B)/C
+g1
+
+28 + 25*(g1^2)
+
+
+ys <- mean(df.ANC) #sample mean
+n <- length(df.ANC) #number in sample
+s.2 <- var(df.ANC) #s^2 of sample
+v.ys <- s.2*(1/n) #V(\bar{y})
+se <- sqrt(v.ys)
+se
+
+ci <- sqrt(s.2/n)
+ci
+up <- ys + ci
+up
+## [1] 12.20341
+down <- ys - ci
+down
+
+28 + 25*(g1^2)

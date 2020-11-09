@@ -1,0 +1,32 @@
+{
+    "id": "4528797F",
+    "path": null,
+    "project_path": null,
+    "type": "r_dataframe",
+    "hash": "0",
+    "contents": "",
+    "dirty": false,
+    "created": 1601994226772.0,
+    "source_on_save": false,
+    "relative_order": 16,
+    "properties": {
+        "expression": "for_clustering_tib",
+        "caption": "for_clustering_tib",
+        "totalObservations": "11780",
+        "displayedObservations": "11780",
+        "variables": "17",
+        "cacheKey": "88E9279B",
+        "object": "for_clustering_tib",
+        "environment": "",
+        "contentUrl": "grid_resource/gridviewer.html?env=&obj=for_clustering_tib&cache_key=88E9279B&max_cols=50",
+        "preview": "0"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1997707729688,
+    "encoding": "",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1601994226772,
+    "read_only": false,
+    "read_only_alternatives": []
+}

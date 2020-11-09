@@ -1,0 +1,9 @@
+#--- load packages
+library(tidyverse)
+library(cluster)
+library(Rtsne)
+
+course_inmates <- courses %>% select(inmate_id, course_id, 
+
+
+

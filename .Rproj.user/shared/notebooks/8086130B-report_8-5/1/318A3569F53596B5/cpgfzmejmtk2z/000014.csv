@@ -1,0 +1,6 @@
+"0","p1 <- ggplot(centralities_no_ER, aes(x=degree)) + xlim(0,20) +  ylim(0, 6500)
+"
+"2","Error: unexpected symbol in:
+""
+p1""
+"

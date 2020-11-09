@@ -1,0 +1,19 @@
+
+
+facilities <- read_csv('facility_IDs.csv')
+
+
+facilities_to_include <- c("Cleveland County","Kane County", 
+                           "ME DOC Maine Correctional Center",
+                          "ME DOC Maine State Prison",
+                          "ME DOC Maine Mountain View",
+                          "Mendocino County",
+                          "Moore County",
+                          "Steuben County",
+                          "Yakima County",
+                          "Yolo County")
+
+facilities <- facilities %>%
+  filter(str_detect(name, paste(facilities_to_include, collapse = "|")))
+  # filter(str_detect(name,'ZZ_', negate=T)) %>%
+  # filter(str_detect(name,'Demo', negate=T))

@@ -1,0 +1,43 @@
+"0","for(i in 1:length(contact_graph_ER)){
+  sna_g <- igraph::get.adjacency(contact_graph_ER[[i]], sparse=T) %>%
+  network::as.network.matrix()
+
+# Store the information
+centralities <- data.frame('node_name' = as.character(network.vertex.names(sna_g)),
+                           'degree' = sna::degree(sna_g))
+
+
+# Calculate eigenvector centrality and store it in the data.frame called 'centralities'
+centralities$eigen <- igraph::eigen_centrality(contact_graph_ER[[i]])$vector
+
+# Calculate Burt's network constraint and store it in the data.frame called 'centralities'
+# using 'igraph' because 'sna' doesn't have the function
+centralities$netconstraint <- igraph::constraint(contact_graph_ER[[i]])
+
+# Calculate authority and store it in the data.frame called 'centralities'
+# using 'igraph' because 'sna' doesn't have the function
+# 'igraph::' allows calling for any igraph function without loading the package
+centralities$authority <- igraph::authority_score(contact_graph_ER[[i]], scale = TRUE)$`vector`
+
+# Calculate hub and store it in the data.frame called 'centralities'
+# using 'igraph' because 'sna' doesn't have the function
+centralities$hub <- igraph::hub_score(contact_graph_ER[[i]], scale = TRUE)$`vector`
+
+centralities_with_ER[[i]] <- centralities %>% 
+  mutate(node_name = as.numeric(node_name)) %>%
+  left_join(edovo_user_data, by=c('node_name'= 'id')) %>%
+  select(first_name, last_name, node_name, degree, eigen, netconstraint, authority, hub)
+
+
+
+centralities_with_ER[[i]] %>% arrange(desc(degree))
+
+p2 <- ggplot(centralities_with_ER[[i]], aes(x=degree)) + xlim(0,20) + ylim(0, 6500) +  
+ geom_histogram(color=""darkblue"", fill=""lightblue"") + ggtitle('Degree Distribution \n WITH (algorithmic) Deduplication')
+p2
+  
+}
+"
+"2","Error in asMethod(object) : 
+  Cholmod error 'out of memory' at file ../Core/cholmod_memory.c, line 147
+"

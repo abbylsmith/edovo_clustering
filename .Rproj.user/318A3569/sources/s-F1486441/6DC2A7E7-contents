@@ -1,0 +1,138 @@
+
+#--- load packages
+library(tidyverse)
+library(cluster)
+library(Rtsne)
+
+course_inmates <- courses %>% select(inmate_id, course_id, 
+                                     quiz_score,
+                                     language, 
+                                     spent_time,
+                                     total_points, 
+                                     total_spent_points,
+                                     facility_id, 
+                                     created_at, 
+                                     status) %>% 
+  mutate(user_time =lubridate::time_length(Sys.Date() - lubridate::as_date(created_at), unit='days') / 365.25 ) %>% 
+  select(-created_at) %>% 
+  filter(status == 'ACTIVE')
+
+
+#-- List, each element a tibble representing a quantile
+course_inmates <- course_inmates %>%
+  mutate(quantile = ntile(user_time, 5)) %>% group_by(quantile) %>% 
+  group_map( ~ .x)
+
+course_tags <- course_tags %>% select(course_id, lesson_count, total_page_count,
+                                      total_page_item_count,!!paste0('tag', 1:5, sep=""))
+
+
+
+#--- takes in a quantiles tib + 
+perform_clustering <- function(quant_tib){
+  inmate_courses <- course_tags %>%
+    left_join(quant_tib, by=c("course_id")) %>% 
+    select(!!paste0('tag', 1:5, sep=""), inmate_id, course_id, total_points, total_spent_points, user_time) %>%
+    group_by(inmate_id) %>%
+    mutate_at(vars(contains('tag')), funs(toString(na.omit((.))))) %>%
+    #select(!!paste0('tag', 1:5, sep="")) %>%
+    purrr::modify(~replace(.x,lengths(.x)==0,list(NA))) %>% # replace empty elements by list(NA) so they have length 1 too
+    modify_if(~all(lengths(.x)==1),unlist) %>%
+    separate('tag1', paste("tag1", 'course', 1:10, sep="_"), sep=",", extra="drop") %>%
+    separate('tag2', paste("tag2", 'course', 1:10, sep="_"), sep=",", extra="drop") %>%
+    separate('tag3', paste("tag3", 'course', 1:10, sep="_"), sep=",", extra="drop") %>%
+    separate('tag4', paste("tag4", 'course',1:10, sep="_"), sep=",", extra="drop") %>%
+    separate('tag5', paste("tag5", 'course', 1:10, sep="_"), sep=",", extra="drop") %>%
+    mutate_at(vars(contains("tag")), as.factor) %>%
+    mutate_if(is.double, as.numeric)
+  
+  gower_dist <- daisy(inmate_courses %>%
+                        select(-course_id, -inmate_id), 'gower')
+  gower_mat <- as.matrix(gower_dist)
+  #' Print most similar courses
+  print(inmate_courses[which(gower_mat == min(gower_mat[gower_mat != min(gower_mat)]), arr.ind = TRUE)[1, ], ])
+  
+  
+  #print most dissimilar courses
+  print(inmate_courses[which(gower_mat == max(gower_mat[gower_mat != max(gower_mat)]), arr.ind = TRUE)[1, ], ])
+  
+  
+  # sil_width <- c(NA)
+  # for(i in 2:20){  
+  #   pam_fit <- pam(gower_dist, diss = TRUE, k = i)  
+  #   sil_width[i] <- pam_fit$silinfo$avg.width  
+  # }
+  # plot(1:20, sil_width,
+  #      xlab = "Number of clusters",
+  #      ylab = "Silhouette Width")
+  # lines(1:20, sil_width)
+  
+  k <- 10
+  pam_fit <- pam(gower_dist, diss = TRUE, k)
+  pam_results <- inmate_courses %>%
+    ungroup() %>% 
+    mutate(cluster = pam_fit$clustering) %>%
+    group_by(cluster) %>%
+    do(the_summary = summary(.))
+  pam_results$the_summary
+  
+  
+  
+  # looking at lower dimensional space
+  tsne_obj <- Rtsne(gower_dist, is_distance = TRUE)
+  tsne_data <- tsne_obj$Y %>%
+    data.frame() %>%
+    setNames(c("X", "Y")) %>%
+    mutate(cluster = factor(pam_fit$clustering))
+  ggplot(aes(x = X, y = Y), data = tsne_data) +
+    geom_point(aes(color = cluster)) 
+  
+  
+  
+}
+map(course_inmates, perform_clustering)
+
+
+
+
+
+# joining with JSON stuff -------------------------------------------------
+coalesce_join <- function(x, y, 
+                          by = NULL, suffix = c(".x", ".y"), 
+                          join = dplyr::full_join, ...) {
+  joined <- join(x, y, by = by, suffix = suffix, ...)
+  # names of desired output
+  cols <- union(names(x), names(y))
+  
+  to_coalesce <- names(joined)[!names(joined) %in% cols]
+  suffix_used <- suffix[ifelse(endsWith(to_coalesce, suffix[1]), 1, 2)]
+  # remove suffixes and deduplicate
+  to_coalesce <- unique(substr(
+    to_coalesce, 
+    1, 
+    nchar(to_coalesce) - nchar(suffix_used)
+  ))
+  
+  coalesced <- purrr::map_dfc(to_coalesce, ~dplyr::coalesce(
+    joined[[paste0(.x, suffix[1])]], 
+    joined[[paste0(.x, suffix[2])]]
+  ))
+  names(coalesced) <- to_coalesce
+  
+  dplyr::bind_cols(joined, coalesced)[cols]
+}
+
+
+
+course_tags <- course_tags %>% select(course_id, lesson_count, total_page_count,
+                                      total_page_item_count,!!paste0('name_tag', 1:5, sep=""), !!paste0('id_number_tag', 1:5, sep="") )
+
+##---- read .csv that mike sent over
+content_tags_test <- read.xlsx('content_tags.xlsx', sheetIndex =1) %>% as_tibble()
+
+trial <- course_tags %>% select(-starts_with('name')) %>% pivot_longer(cols=starts_with('id'), names_to='test', values_to ='tag_ID')%>%
+  left_join(parsed_json , by= c("tag_ID")) %>% mutate(name = title.y) %>% select(-title.y) ##TODO-- change left to coalesce join
+
+for_clustering_tib <-coalesce_join(trial,content_tags_test %>% mutate(tag_ID = id) %>% select(-id), by= c('tag_ID')) %>%
+  drop_na(name)
+

@@ -1,0 +1,15 @@
+library(data.tree)
+library(jsonlite)
+library(tidyverse)
+library(magrittr)
+default_map<- fromJSON('new_default_map.json', simplifyDataFrame = FALSE)
+
+
+default_map<- as.Node(default_map)
+#print(default_map, "id", "title")
+
+
+parsed_json <- default_map %>%
+  ToDataFrameTable(json_id='id', 'title', parent_ID= function(x) x$parentId, tag_ID = 'tags', course_type='type',
+                                          total_pages = 'total') %>% 
+  distinct()

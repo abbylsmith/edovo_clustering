@@ -1,0 +1,22 @@
+library(data.tree)
+library(jsonlite)
+library(magrittr)
+test_hierch<- fromJSON('new_default_map.json', simplifyDataFrame = FALSE)
+
+library(data.tree)
+repos <- as.Node(test_hierch)
+print(repos, "id", "title")
+
+#convert this to a data.frame
+reposdf <- repos$ToDataFrameTable(ownerId = "id")
+                                  "title", 
+                                  repoName = function(x) x$parent$id, #relative to the leaf
+                                  fullName = "title", #unambiguous values are inherited from ancestors
+                                  repoId = function(x) x$parent$id,
+                                 # "fork", 
+                                  "type")
+
+reposdf
+
+
+repos %>% ToDataFrameTable(course_ID='id', 'title', parent_ID= function(x) x$parentId, fullName='type')

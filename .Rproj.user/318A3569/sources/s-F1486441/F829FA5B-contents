@@ -1,0 +1,119 @@
+#--- script to run from command line
+
+library(tidyverse)
+library(fastLink)
+library(stringr)
+library(data.table)
+
+#-- read in the data, basically do the SQL join I should have done before...
+edovo_user_data <- read_csv('inmates_Edovo.csv')
+
+#--- for RL
+
+for_RL <- edovo_user_data %>% select( -hashed_password, 
+                                     -points,
+                                     -total_points, 
+                                     -total_spent_points,
+                                     -credit_balance, 
+                                     -balance, 
+                                     -created_at,
+                                     -updated_at,
+                                     -desk_id,
+                                     -phone_number,
+                                     -zendesk_id,
+                                     -release_date) %>%
+  #mutate(release_date = as.character(release_date)) %>%
+  mutate(edovo_orig_id = id, 
+         edovo_orig_inmate_id = inmate_id) %>%
+  select(-id, -inmate_id) %>%
+  mutate(age = lubridate::time_length(Sys.Date() - birth_date, unit='days') / 365.25) #365.25 to acccount for leapyear
+
+
+#--fastLink code from Ted
+
+## Let's brake the data into quintiles of age
+quant <- quantile(for_RL$age, p = seq(0, 1, by = 1/5))
+
+for_RL$block <- NA
+for_RL$block[for_RL$age < quant[2]] <- 1
+for_RL$block[for_RL$age >= quant[2] & for_RL$age < quant[3]] <- 2
+for_RL$block[for_RL$age >= quant[3] & for_RL$age < quant[4]] <- 3
+for_RL$block[for_RL$age >= quant[4] & for_RL$age < quant[5]] <- 4
+for_RL$block[for_RL$age >= quant[5]] <- 5
+for_RL$block[for_RL$age >= quant[6] & for_RL$age < quant[7]] <- 6
+for_RL$block[for_RL$age >= quant[7] & for_RL$age < quant[8]] <- 7
+for_RL$block[for_RL$age >= quant[8] & for_RL$age < quant[9]] <- 8
+for_RL$block[for_RL$age >= quant[9] & for_RL$age < quant[10]] <- 9
+for_RL$block[for_RL$age >= quant[10]] <- 10
+## Let's brake the data into quintiles of age
+## I am sure there is a faster way to do this (with data.table for sure)
+quant <- quantile(for_RL$age, p = seq(0, 1, by = 1/10))
+
+for_RL$block <- NA
+for_RL$block[for_RL$age < quant[2]] <- 1
+for_RL$block[for_RL$age >= quant[2] & for_RL$age < quant[3]] <- 2
+for_RL$block[for_RL$age >= quant[3] & for_RL$age < quant[4]] <- 3
+for_RL$block[for_RL$age >= quant[4] & for_RL$age < quant[5]] <- 4
+for_RL$block[for_RL$age >= quant[5] & for_RL$age < quant[6]] <- 5
+for_RL$block[for_RL$age >= quant[6] & for_RL$age < quant[7]] <- 6
+for_RL$block[for_RL$age >= quant[7] & for_RL$age < quant[8]] <- 7
+for_RL$block[for_RL$age >= quant[8] & for_RL$age < quant[9]] <- 8
+for_RL$block[for_RL$age >= quant[9] & for_RL$age < quant[10]] <- 9
+for_RL$block[for_RL$age >= quant[10]] <- 10
+
+for(i in 4:9){ ## Just to diagnose, let's try this just in 3 blocks
+  ## 1. Subset original data to form block
+  i <- 10
+  for_RL.b <- for_RL[for_RL$block == i, ]
+  
+  ## 2. fastLink applied to a block
+  matches_FastLink <- fastLink(
+    dfA = for_RL.b, dfB = for_RL.b,
+    varnames = c("first_name", "last_name", "age"),
+    stringdist.match = c("first_name", "last_name"),
+    numeric.match = 'age',
+    partial.match = c("first_name", "last_name"),
+    cut.a = 0.94, cut.p = 0.84,
+    n.cores = 4, ## we won't use all the cores in your machine (to avoid eating all the RAM)
+    dedupe = FALSE, ## this is to avoid a one-to-one match
+    threshold.match = 0.70
+  )
+  
+  ## Fixing the issue with getMatches manually:
+  id_tmp <- data.frame(id = 1:nrow(for_RL.b))
+  matches <- data.table(cbind(matches_FastLink$matches$inds.b[matches_FastLink$posterior >= 0.90],
+                              matches_FastLink$matches$inds.a[matches_FastLink$posterior >= 0.90]))
+  
+  pasteT <- function(x) {
+    x = sort(x)
+    x = paste(x, collapse = ",")
+    x
+    
+  }
+  
+  matches[, `:=`(V3, pasteT(V2)), by = "V1"]
+  ans <- matches[, .(id_2 = unique(V3)), by = "V1"]
+  ans$id_2 <- as.numeric(as.factor(ans$id_2))
+  colnames(ans) <- c("id", "id_2")
+  out_df <- merge(id_tmp, ans, by = "id")
+  
+  for_RL.b$id <- 1:nrow(for_RL.b)
+  for_RL.b <- merge(for_RL.b, out_df, by = "id", all.x = T) ## This is where getMatches breaks (if it does so)
+  for_RL.b$id_2[is.na(for_RL.b$id_2)] <- (max(for_RL.b$id_2, na.rm = T) + 1):(max(for_RL.b$id_2, na.rm = T) + sum(is.na(for_RL.b$id_2)))
+  
+
+  for_RL.b$id_2 <- paste0("C", str_pad(i, 3, pad = "0"), "_", str_pad(for_RL.b$id_2, 7, pad = "0"))
+  
+  save(for_RL.b, file = paste0("./data_", "C", str_pad(i, 3, pad = "0"), "_Dedup.RData"))
+  rm(records.temp, for_RL.b); gc() ## remove temp objects
+}
+
+all.files <- map_chr(1:10, function(i) paste0("data_", "C", str_pad(i, 3, pad = "0"), "_Dedup.RData"))
+
+mylist<- lapply(all.files, function(x) {
+  load(file = x)
+  get(ls()[ls()!= "filename"])
+})
+
+all_blocks <- do.call("rbind", mylist)
+saveRDS(all_blocks, 'all_blocks.RDS')

@@ -1,0 +1,495 @@
+---
+title: "Report for Erin"
+author: "Abby Smith"
+date: "7/15/2020"
+output:
+  word_document: default
+  html_document: default
+  pdf_document: default
+always_allow_html: true
+---
+
+```{r, include=F}
+knitr::opts_chunk$set(echo=F, warning=F, message=F)
+```
+
+
+```{r}
+library(readxl)
+library(knitr)
+library(tidyverse)
+library(corrplot)
+library(lmodel2)
+library(irr)
+library(broom)
+library(kableExtra)
+library(gridExtra)
+library(psych)
+
+# load in Lauren's data
+test_data <- read_xls('erin_data.xls', sheet=2, skip =1, col_types = c("text", "text", "text", "numeric",
+                                                              "numeric", "numeric", "numeric")) 
+colnames(test_data) <- c("ID", "Sex", "Race", "F Medial" ,"F Lateral", "T Medial", "T Lateral")
+kable(test_data %>% 
+  summarise_if(is.numeric,list(~ mean(., na.rm=T), ~sd(., na.rm=T))), caption='Mean+ SD of Erin Data', format='pipe') %>%
+  kable_styling(latex_options = c("striped", "scale_down"))
+
+#load in Erin data
+train_data<- read_xls('erin_data.xls', sheet=1, col_types = c("numeric", "text", "text", "numeric",
+                                                              "numeric", "numeric", "numeric"))
+
+colnames(train_data) <- c("ID", "Race", "Sex", "F Medial" ,"F Lateral", "T Medial", "T Lateral")
+
+
+
+kable(train_data %>% 
+  summarise_if(is.numeric,list(~ mean(., na.rm=T), ~sd(., na.rm=T))), caption='Mean+ SD of Lauren Data', format='pipe') %>%
+  kable_styling(latex_options = c("striped", "scale_down"))
+
+
+
+test_data <-test_data %>%
+  mutate(Race = tolower(Race),
+         Sex = tolower(Sex))
+
+```
+
+
+
+
+````{r}
+#---- Descriptive Stats
+
+se <- function(x) sqrt(var(x, na.rm=T)/length(x))
+
+kable(test_data %>%  pivot_longer(cols =`F Medial`:`T Lateral`, names_to ='measurement', values_to='values') %>% group_by(Sex, Race, measurement) %>% summarise(mean= mean(values),sd= sd(values), se = se(values)) %>%
+  pivot_wider(names_from=c('Sex','Race'), values_from=c('mean', 'sd', 'se'))%>% relocate(measurement, contains('Male_White', ignore.case=F), contains('Male_Black', ignore.case=F), contains('Female_White',ignore.case=F), contains('Female_Black', ignore.case=F))) %>% 
+  kable_styling(latex_options = c("striped", "scale_down"))
+                                                                                                        
+                                                                                                        #
+
+
+
+```
+
+```{r}
+
+# EDA: Tukey Test, reliability, etc. --------------------------------------
+
+observer_a <- read_xls('erin_data.xls', sheet=3, skip =2, col_names = F) %>% 
+  mutate(observer = "A") %>% slice( 1:(n()-3))
+colnames(observer_a) <- c("ID", "Sex", "Race", "F Medial" ,"F Lateral", "T Medial", "T Lateral", "Observer")
+  
+observer_b <- read_xls('erin_data.xls', sheet=4, skip =2, col_names = F)  %>% 
+  mutate(observer = "B") %>% slice( 1:(n()-3))
+colnames(observer_b) <- c("ID", "Sex", "Race", "F Medial" ,"F Lateral", "T Medial", "T Lateral",  "Observer")
+
+observer_c <- read_xls('erin_data.xls', sheet=5, skip =2, col_names = F) %>%
+  mutate(observer = "C") %>% slice( 1:(n()-3))
+colnames(observer_c) <- c("ID", "Sex", "Race", "F Medial" ,"F Lateral", "T Medial", "T Lateral",  "Observer")
+
+observer_d <- read_xls('erin_data.xls', sheet=6, skip =2, col_names = F)  %>% 
+  mutate(observer = "D") %>% slice( 1:(n()-3))
+colnames(observer_d) <- c("ID", "Sex", "Race", "F Medial" ,"F Lateral", "T Medial", "T Lateral",  "Observer")
+
+observer_e <- read_xls('erin_data.xls', sheet=7, skip =2, col_names = F)  %>% 
+  mutate(observer = "E") %>% slice( 1:(n()-3))
+colnames(observer_e) <- c("ID", "Sex", "Race", "F Medial" ,"F Lateral", "T Medial", "T Lateral",  "Observer")
+ 
+ 
+all_observers <- bind_rows(observer_a, observer_b, observer_c, observer_d, observer_e) %>% 
+  drop_na(ID)
+
+#mean of ID
+kable(all_observers %>% 
+  group_by(ID)%>% 
+  summarise_if(is.numeric,list(~ mean(., na.rm=T), ~sd(., na.rm=T))), caption='Mean+ SD of All Observers, by ID', format='pipe') %>%
+  kable_styling(latex_options = c("striped", "scale_down"))
+
+#--TABLE OF INTEREST here
+kable(all_observers %>% 
+  group_by(Observer)%>% 
+  summarise_if(is.numeric,list(~ mean(., na.rm=T), ~sd(., na.rm=T),  ~se(.))) %>% pivot_longer(cols =`F Medial_mean`:`T Lateral_se`, names_to ='measurement', values_to='values') %>% pivot_wider(names_from='Observer', values_from='values'), caption='Mean+ SD + SE of All Observers, by Observer', format='pipe') %>%
+  kable_styling(latex_options = c("striped", "scale_down"))
+
+for_icc <- all_observers %>% 
+  pivot_longer(cols =`F Medial`:`T Lateral`, names_to ='measurement', values_to='values') %>%
+  pivot_wider(names_from ='Observer', values_from = 'values')
+
+psych::ICC(for_icc[,5:9],missing=F, lmer=F)#ICC
+
+
+
+
+```
+
+We use an ANOVA to study the effect of Sex + Race on medial femur measurements. **TO DO**: for all measurements?
+
+```{r}
+# ANOVA -------------------------------------------------------------------
+
+#What is the effect of Sex on medial femur measurements?
+analysis_of_var <- aov(`T Medial` ~ Sex + Race ,data=train_data)
+summary(analysis_of_var)
+
+analysis_of_var <- aov(`T Lateral` ~ Sex + Race ,data=train_data)
+summary(analysis_of_var)
+
+#--- ANCOVA: none of these are significant, as expected
+analysis_of_var <- aov(`T Medial` ~ Sex * Race ,data=train_data)
+summary(analysis_of_var)
+
+analysis_of_var <- aov(`T Lateral` ~ Sex *Race ,data=train_data)
+summary(analysis_of_var)
+
+analysis_of_var <- aov(`F Lateral` ~ Sex *Race ,data=train_data)
+summary(analysis_of_var)
+
+analysis_of_var <- aov(`F Medial` ~ Sex *Race ,data=train_data)
+summary(analysis_of_var)
+
+analysis_of_var <- aov(`F Medial` ~ `T Medial`, data = train_data)
+summary(analysis_of_var)
+```
+
+With acknowledgement that there is significant sex and race differences, we compute a Tukey Honest Significant Differences test and compute the confidence intervals between the means of each group. 
+
+```{r}
+#SEX
+analysis_of_var <- aov(`T Medial` ~ Sex + Race ,data=train_data)
+tukey_test <- TukeyHSD(x= analysis_of_var, 'Sex', conf.level=0.95)
+tukey_test
+#RACE-- not significant
+tukey_test2 <- TukeyHSD (x= analysis_of_var, 'Race', conf.level=0.95)
+tukey_test2
+
+```
+
+```{r}
+
+# Plots? ------------------------------------------------------------------
+corrplot(cor(all_observers %>% select_if(is.numeric) %>% 
+               drop_na()))
+
+grid.arrange(ggplot(test_data, aes(y=`F Medial`)) + geom_boxplot() +  facet_wrap(~Sex),
+ggplot(test_data, aes(y=`F Lateral`)) + geom_boxplot() +  facet_wrap(~Sex),
+ggplot(test_data, aes(y=`T Medial`)) + geom_boxplot() +  facet_wrap(~Sex),
+ggplot(test_data, aes(y=`T Lateral`)) + geom_boxplot() +  facet_wrap(~Sex), nrow=2)
+
+#observer
+ggplot(all_observers, aes(x = Observer, y = `F Medial` )) + geom_boxplot() + facet_wrap(~Sex)
+ggplot(all_observers, aes(x = Observer, y = `F Lateral` )) + geom_boxplot()+ facet_wrap(~Sex)
+ggplot(all_observers, aes(x = Observer, y = `T Medial` )) + geom_boxplot() + facet_wrap(~Sex)
+ggplot(all_observers, aes(x = Observer, y = `T Lateral` )) + geom_boxplot()+ facet_wrap(~Sex)
+
+
+
+# Model Fitting -----------------------------------------------------------
+
+medial_mod <- lmodel2( `T Medial` ~`F Medial` , data=train_data, "relative", "relative", 99)
+plot(medial_mod, "RMA")
+
+
+results <- tidy(medial_mod) %>% filter(method =='RMA') #TMedial = 6.25 + 1.06FMedial
+#glance(medial_mod)
+
+
+#nicer looking plot
+reg <- medial_mod$regression.results
+names(reg) <- c("method", "intercept", "slope", "angle", "p-value")
+ggplot(test_data) + 
+  geom_point(aes(`F Medial`, `T Medial`)) +
+  geom_abline(data = reg, aes(intercept = intercept, slope = slope, colour = method))
+
+
+lateral_mod <- lmodel2(`T Lateral` ~ `F Lateral`, data=train_data, "relative", "relative", 99)
+#tidy(lateral_mod) %>% filter(method=='RMA') #TLateral = 5.32 + 0.963*FLateral
+
+
+
+```
+
+The RMA equations are:
+
+$$\widehat{T_{Medial}}= 6.25 + 1.06F_{Medial}$$
+
+$$\widehat{T_{Lateral}}= 5.322 + 0.963F_{Lateral}$$
+
+The confidence intervals for the pooled medial model: 
+
+```{r}
+#confidence intervals
+medial_mod$confidence.intervals %>% filter(Method=='RMA')
+
+```
+
+The confidence intervals for the pooled lateral model: 
+
+```{r}
+
+lateral_mod$confidence.intervals %>% filter(Method=='RMA')
+
+```
+
+We now calculate the mean squared error for the medial model and the lateral model.
+
+```{r}
+
+# Model Evaluating --------------------------------------------------------
+model_eval <- test_data %>% mutate(t_medial_est = 6.26 + 1.06*`F Medial`,
+                     t_lateral_est = 5.32 + 0.963*`F Lateral`,
+                     residual_medial_fit = `T Medial` - t_medial_est, #"absolute difference"
+                     residual_lateral_fit = `T Lateral` - t_lateral_est, #"absolute difference"
+                    percent_diff_medial = (1 - t_medial_est / `T Medial`) *100,
+                    percent_diff_lateral = (1- t_lateral_est / `T Lateral`) * 100)
+
+model_eval_summary <- model_eval %>% 
+    summarise(t_medial_mean = mean(t_medial_est),
+      t_lateral_mean = mean(t_lateral_est),
+      t_medial_sd = sd(t_medial_est), 
+      t_lateral_sd= sd(t_lateral_est),
+      mean_res_medial = mean(residual_medial_fit), #They call BIAS
+            mean_res_lateral = mean(residual_lateral_fit), #They call BIAS
+           avg_percent_diff_medial = mean(percent_diff_medial),
+avg_percent_diff_lateral = mean(percent_diff_lateral))
+
+
+#--- NOT SIG meanS are not different
+t.test(model_eval$t_medial_est,
+       model_eval$`T Medial`,
+       paired=TRUE,
+       conf.level=0.95)
+
+
+#--- significant!! means are different
+t.test(model_eval$t_lateral_est,
+       model_eval$`T Lateral`,
+       paired=TRUE,
+       conf.level=0.95)
+
+lateral_mod$rsquare # POOLED LATERAL MOD r-squared
+medial_mod$rsquare # POOLED MEDIAL MOD r-squared
+
+```
+
+
+
+
+
+```{r}
+#--- estimating error compared to each observer
+
+kable(all_observers %>% 
+                    mutate(t_medial_est = 6.26 + 1.06*`F Medial`,
+                     t_lateral_est = 5.32 + 0.963*`F Lateral`,
+                     residual_medial_fit = `T Medial` - t_medial_est, #"absolute difference"
+                     residual_lateral_fit = `T Lateral` - t_lateral_est,
+                    percent_diff_medial = (1 - t_medial_est / `T Medial`) *100,
+                    percent_diff_lateral = (1- t_lateral_est / `T Lateral`) * 100) %>%
+  group_by(Observer) %>%
+  summarise(mean_medial_fit = mean(residual_medial_fit, na.rm=T), 
+            mean_lateral_fit= mean(residual_lateral_fit, na.rm=T)), format='pipe')
+
+
+
+```
+
+
+We then fit models by gender. First, we'll fit a model for men.
+
+The equations for men:
+
+$$\widehat{T_{Medial}}= 11.5 + 0.870F_{Medial}$$
+
+$$\widehat{T_{Lateral}}= 7.27 + 0.901F_{Lateral}$$
+
+
+```{r}
+
+
+# Model by Gender ---------------------------------------------------------
+
+#male
+medial_mod_male <- lmodel2(`T Medial` ~ `F Medial`, data=train_data %>% 
+                        filter(Sex =='male'), "relative", "relative", 99)
+#plot(medial_mod_male, "RMA")
+
+#nicer looking plot
+reg <- medial_mod_male$regression.results
+names(reg) <- c("method", "intercept", "slope", "angle", "p-value")
+
+##TO PUT IN EQUATIOn
+#tidy(medial_mod_male) %>% filter(method == 'RMA') #TMedial = 11.5 + 0.870FMedial
+#glance(medial_mod_male)
+
+lateral_mod_male <- lmodel2(`T Lateral` ~ `F Lateral`, data=train_data %>%
+                              filter(Sex == 'male'), "relative", "relative", 99)
+#tidy(lateral_mod_male) %>% filter(method == 'RMA') #TLateral = 7.27 + 0.901*FLateral
+
+
+lateral_mod_male$rsquare #male lateral mod
+medial_mod_male$rsquare #male medial mod
+
+
+```
+
+
+
+Evaluating the error "bias" for the models for males: 
+
+```{r}
+model_summary_male <- test_data %>%filter(Sex == 'male')  %>% mutate(t_medial_est = 11.5 + 0.87*`F Medial`,
+                     t_lateral_est = 7.27 + 0.901*`F Lateral`,
+                     residual_medial_fit = `T Medial` - t_medial_est,
+                     residual_lateral_fit = `T Lateral` - t_lateral_est, 
+                    percent_diff_medial = (1 - t_medial_est / `T Medial`) *100,
+                    percent_diff_lateral = (1- t_lateral_est / `T Lateral`) * 100) %>%
+  summarise(t_medial_mean = mean(t_medial_est),
+      t_lateral_mean = mean(t_lateral_est),
+      t_medial_sd = sd(t_medial_est), 
+      t_lateral_sd= sd(t_lateral_est),
+      mean_res_medial = mean(residual_medial_fit), # ^ 2), They call BIAS
+            mean_res_lateral = mean(residual_lateral_fit), # ^2), They call BIAS
+           avg_percent_diff_medial = mean(percent_diff_medial),
+avg_percent_diff_lateral = mean(percent_diff_lateral))
+```
+
+The confidence intervals for the male medial model: 
+
+```{r}
+#confidence intervals
+medial_mod_male$confidence.intervals %>% filter(Method=='RMA')
+
+```
+
+The confidence intervals for the male lateral model: 
+
+```{r}
+
+lateral_mod_male$confidence.intervals %>% filter(Method=='RMA')
+
+```
+
+
+
+And then for females: 
+
+
+$$\widehat{T_{Medial}}= 10.4 + 0.85F_{Medial}$$
+
+$$\widehat{T_{Lateral}}= 7.07 + 0.891F_{Lateral}$$
+
+
+```{r}
+
+medial_mod_female <- lmodel2(`T Medial` ~ `F Medial`, data=train_data %>% 
+                            filter(Sex == 'female'), "relative", "relative", 99)
+plot(medial_mod_female, "RMA")
+#tidy(medial_mod_female) %>% filter(method == 'RMA') #TMedial = 10.4 + 0.858FMedial
+#glance(medial_mod_female)
+
+
+lateral_mod_female <- lmodel2(`T Lateral` ~ `F Lateral`, data=train_data %>%
+                              filter(Sex == 'female'), "relative", "relative", 99)
+#tidy(lateral_mod_female) %>% filter(method == 'RMA') #TLateral = 7.07 + 0.891*FLateral
+
+lateral_mod_female$rsquare
+medial_mod_female$rsquare
+
+```
+
+Evaluating the MSE for the models for females: 
+
+```{r}
+model_summary_female <- test_data %>% filter(Sex == 'female') %>% mutate(t_medial_est = 10.4 + 0.858*`F Medial`,
+                     t_lateral_est = 7.07 + 0.891*`F Lateral`,
+                     residual_medial_fit = `T Medial` - t_medial_est,
+                     residual_lateral_fit = `T Lateral` - t_lateral_est,
+                     percent_diff_medial = (1 - t_medial_est / `T Medial`) *100,
+                    percent_diff_lateral = (1- t_lateral_est / `T Lateral`) * 100) %>%
+summarise(t_medial_mean = mean(t_medial_est),
+      t_lateral_mean = mean(t_lateral_est),
+      t_medial_sd = sd(t_medial_est), 
+      t_lateral_sd= sd(t_lateral_est),
+      mean_res_medial = mean(residual_medial_fit), # ^ 2), They call BIAS
+            mean_res_lateral = mean(residual_lateral_fit), # ^2), They call BIAS
+           avg_percent_diff_medial = mean(percent_diff_medial),
+avg_percent_diff_lateral = mean(percent_diff_lateral))
+
+```
+
+The confidence intervals for the female medial model: 
+
+```{r}
+#confidence intervals
+medial_mod_female$confidence.intervals %>% filter(Method=='RMA')
+
+```
+
+The confidence intervals for the female lateral model: 
+
+```{r}
+
+lateral_mod_female$confidence.intervals %>% filter(Method=='RMA')
+
+```
+## For Report
+
+```{r}
+#-- summarizing 
+model_summary_total <- bind_rows(model_eval_summary, model_summary_male, model_summary_female)
+model_summary_total$model <- c("Pooled", "Male", "Female")
+
+colnames(model_summary_total) <- c("SD Medial", "SD Lateral",
+                                   "Mean Bias Medial", "Mean Bias Lateral",
+                                   "Avg. Percent Difference Medial", 
+                                   "Avg. Perecent Different Lateral", "Model Type")
+
+kable(model_summary_total, format='pipe')
+
+
+```
+
+```{r}
+sd_tab <- model_eval %>% pivot_longer(cols =`F Medial`:`T Lateral`, names_to ='measurement', values_to='values') %>% group_by(measurement) %>% summarise(mean= mean(values),sd= sd(values)) %>% pivot_wider(names_from = 'measurement', values_from=c('mean', 'sd'))
+
+
+within_sd <- bind_rows(test_data %>% mutate(within_1_sd_t_Lateral= ifelse(`T Lateral`<=  model_eval_summary$t_lateral_mean + 2*model_eval_summary$t_lateral_sd &  `T Lateral`>= model_eval_summary$t_lateral_mean - 2*model_eval_summary$t_lateral_sd, 1, 0),
+                                                             within_1_sd_t_Medial= ifelse(`T Medial`<= model_eval_summary$t_medial_mean + 2*model_eval_summary$t_medial_sd &  `T Medial`>= model_eval_summary$t_medial_mean - 2*model_eval_summary$t_medial_sd, 1, 0)) %>% 
+  summarise(within_1_sd_t_Lateral= sum(within_1_sd_t_Lateral),
+           within_1_sd_t_Medial = sum(within_1_sd_t_Medial)),
+
+test_data %>% filter(Sex=='male') %>% mutate(within_1_sd_t_Lateral= ifelse(`T Lateral`<=  model_summary_male$t_lateral_mean + 2*model_summary_male$t_lateral_sd &  `T Lateral`>= model_summary_male$t_lateral_mean - 2*model_summary_male$t_lateral_sd, 1, 0),
+                                                             within_1_sd_t_Medial= ifelse(`T Medial`<= model_summary_male$t_medial_mean + 2*model_summary_male$t_medial_sd &  `T Medial`>= model_summary_male$t_medial_mean - 2*model_summary_male$t_medial_sd, 1, 0)) %>% 
+  summarise(within_1_sd_t_Lateral= sum(within_1_sd_t_Lateral),
+           within_1_sd_t_Medial = sum(within_1_sd_t_Medial)),
+
+
+test_data %>% filter(Sex=='female') %>% mutate(within_1_sd_t_Lateral= ifelse(`T Lateral`<=  model_summary_female$t_lateral_mean + 2*model_summary_female$t_lateral_sd &  `T Lateral`>= model_summary_female$t_lateral_mean - 2*model_summary_female$t_lateral_sd, 1, 0),
+                                                             within_1_sd_t_Medial= ifelse(`T Medial`<= model_summary_female$t_medial_mean + 2*model_summary_female$t_medial_sd &  `T Medial`>= model_summary_female$t_medial_mean - 2*model_summary_male$t_medial_sd, 1, 0)) %>% 
+  summarise(within_1_sd_t_Lateral= sum(within_1_sd_t_Lateral),
+           within_1_sd_t_Medial = sum(within_1_sd_t_Medial)))
+
+within_sd$model <- c("Total", "Male", "Female")
+kable(within_sd, format='pipe')
+
+
+          #   obs_within_sd_med = 
+          #  obs_within_sd_lat = 
+          # observations_within_CI_med = 
+          #  observations_within_CI_lat = 
+```
+
+
+```{r}
+ggplot(data = test_data, aes(`F Medial`, `T Medial`, size = Sex, color=Race)) +
+  xlab('Medial Femoral Condlyte') + ylab('Medial Tibial Condylte') +
+  stat_smooth(aes(`F Medial`, `T Medial`),method=lm,inherit.aes = F) +
+  geom_point() + theme_minimal()
+
+ggplot(data = test_data, aes(`F Lateral`, `T Lateral`, size = Sex, color=Race)) +
+  stat_smooth(aes(`F Lateral`, `T Lateral`),method=lm,inherit.aes = F) + 
+  xlab('Lateral Femoral Condlyte') + ylab('Lateral Tibial Condylte') +
+  geom_point() + theme_minimal()
+```
+

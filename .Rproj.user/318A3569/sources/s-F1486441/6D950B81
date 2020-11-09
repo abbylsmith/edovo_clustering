@@ -1,0 +1,32 @@
+{
+    "id": "6D950B81",
+    "path": null,
+    "project_path": null,
+    "type": "r_dataframe",
+    "hash": "0",
+    "contents": "",
+    "dirty": false,
+    "created": 1601677808816.0,
+    "source_on_save": false,
+    "relative_order": 10,
+    "properties": {
+        "expression": "course_tags %>% pivot_longer(cols = starts_with(\"id\"), names_to = \"test\",      values_to = \"tag_ID\") %>% inner_join(parsed_json, by = c(\"tag_ID\"))",
+        "caption": "course_tags %>% pivot_longer(cols = starts_with(\"id\"), names_to = \"test\", ",
+        "totalObservations": "445",
+        "displayedObservations": "445",
+        "variables": "53",
+        "cacheKey": "ECD820B5",
+        "object": "",
+        "environment": "_rs_no_env",
+        "contentUrl": "grid_resource/gridviewer.html?env=_rs_no_env&obj=&cache_key=ECD820B5&max_cols=50",
+        "preview": "0"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 0,
+    "encoding": "",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1601677808816,
+    "read_only": false,
+    "read_only_alternatives": []
+}

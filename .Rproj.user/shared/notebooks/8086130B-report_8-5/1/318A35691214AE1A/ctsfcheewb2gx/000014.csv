@@ -1,0 +1,5 @@
+"0","sna_g <- igraph::get.adjacency(igraph_test, sparse=T) %>% network::as.network.matrix()
+"
+"2","Error in asMethod(object) : 
+  Cholmod error 'problem too large' at file ../Core/cholmod_dense.c, line 105
+"

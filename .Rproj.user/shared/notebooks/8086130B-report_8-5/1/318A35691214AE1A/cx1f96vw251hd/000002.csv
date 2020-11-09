@@ -1,0 +1,22 @@
+"0","#-- read in the data, basically do the SQL join I should have done before...
+edovo_user_data <- read_csv('inmates_Edovo.csv')
+"
+"2","Parsed with column specification:
+cols(
+  .default = col_character(),
+  id = [32mcol_double()[39m,
+  birth_date = [34mcol_date(format = """")[39m,
+  created_at = [34mcol_datetime(format = """")[39m,
+  updated_at = [34mcol_datetime(format = """")[39m,
+  points = [32mcol_double()[39m,
+  total_points = [32mcol_double()[39m,
+  total_spent_points = [32mcol_double()[39m,
+  facility_id = [32mcol_double()[39m,
+  release_date = [34mcol_datetime(format = """")[39m,
+  credit_balance = [32mcol_double()[39m,
+  balance = [32mcol_double()[39m,
+  desk_id = [32mcol_double()[39m
+)
+"
+"2","See spec(...) for full column specifications.
+"

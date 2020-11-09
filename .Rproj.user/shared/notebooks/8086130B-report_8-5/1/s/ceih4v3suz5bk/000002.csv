@@ -1,0 +1,199 @@
+"0","library(tidyverse)"
+"2","Registered S3 methods overwritten by 'dbplyr':
+  method         from
+  print.tbl_lazy     
+  print.tbl_sql      
+"
+"2","[37m-- [1mAttaching packages[22m --------------------------------------- tidyverse 1.3.0 --[39m
+"
+"2","[37m[32mv[37m [34mggplot2[37m 3.3.2     [32mv[37m [34mpurrr  [37m 0.3.4
+[32mv[37m [34mtibble [37m 3.0.3     [32mv[37m [34mdplyr  [37m 1.0.0
+[32mv[37m [34mtidyr  [37m 1.1.0     [32mv[37m [34mstringr[37m 1.4.0
+[32mv[37m [34mreadr  [37m 1.3.1     [32mv[37m [34mforcats[37m 0.5.0[39m
+"
+"2","[37m-- [1mConflicts[22m ------------------------------------------ tidyverse_conflicts() --
+[31mx[37m [34mdplyr[37m::[32mfilter()[37m masks [34mstats[37m::filter()
+[31mx[37m [34mdplyr[37m::[32mlag()[37m    masks [34mstats[37m::lag()[39m
+"
+"0","library(lubridate)"
+"2","
+Attaching package: ‘lubridate’
+
+"
+"2","The following objects are masked from ‘package:base’:
+
+    date, intersect, setdiff, union
+
+"
+"0","library(skimr)"
+"0","library(RecordLinkage)"
+"2","Loading required package: DBI
+"
+"2","Loading required package: RSQLite
+"
+"2","Loading required package: ff
+"
+"2","Loading required package: bit
+"
+"2","Attaching package bit
+"
+"2","package:bit (c) 2008-2012 Jens Oehlschlaegel (GPL-2)
+"
+"2","creators: bit bitwhich
+"
+"2","coercion: as.logical as.integer as.bit as.bitwhich which
+"
+"2","operator: ! & | xor != ==
+"
+"2","querying: print length any all min max range sum summary
+"
+"2","bit access: length<- [ [<- [[ [[<-
+"
+"2","for more help type ?bit
+"
+"2","
+Attaching package: ‘bit’
+
+"
+"2","The following object is masked from ‘package:base’:
+
+    xor
+
+"
+"2","Attaching package ff
+"
+"2","- getOption(""fftempdir"")==""C:/Users/User/AppData/Local/Temp/RtmpG2Cuj8""
+
+"
+"2","- getOption(""ffextension"")==""ff""
+
+"
+"2","- getOption(""ffdrop"")==TRUE
+
+"
+"2","- getOption(""fffinonexit"")==TRUE
+
+"
+"2","- getOption(""ffpagesize"")==65536
+
+"
+"2","- getOption(""ffcaching"")==""mmnoflush""  -- consider ""ffeachflush"" if your system stalls on large writes
+
+"
+"2","- getOption(""ffbatchbytes"")==84420853.76 -- consider a different value for tuning your system
+
+"
+"2","- getOption(""ffmaxbytes"")==4221042688 -- consider a different value for tuning your system
+
+"
+"2","
+Attaching package: ‘ff’
+
+"
+"2","The following objects are masked from ‘package:bit’:
+
+    clone, clone.default, clone.list
+
+"
+"2","The following objects are masked from ‘package:utils’:
+
+    write.csv, write.csv2
+
+"
+"2","The following objects are masked from ‘package:base’:
+
+    is.factor, is.ordered
+
+"
+"2","Loading required package: ffbase
+"
+"2","Registered S3 methods overwritten by 'ffbase':
+  method   from
+  [.ff     ff  
+  [.ffdf   ff  
+  [<-.ff   ff  
+  [<-.ffdf ff  
+"
+"2","
+Attaching package: ‘ffbase’
+
+"
+"2","The following objects are masked from ‘package:ff’:
+
+    [.ff, [.ffdf, [<-.ff, [<-.ffdf
+
+"
+"2","The following objects are masked from ‘package:base’:
+
+    %in%, table
+
+"
+"2","Registered S3 method overwritten by 'data.table':
+  method           from
+  print.data.table     
+"
+"2","RecordLinkage library
+"
+"2","[c] IMBEI Mainz
+
+"
+"2","
+Attaching package: ‘RecordLinkage’
+
+"
+"2","The following object is masked from ‘package:ff’:
+
+    clone
+
+"
+"2","The following object is masked from ‘package:bit’:
+
+    clone
+
+"
+"2","The following object is masked from ‘package:base’:
+
+    isFALSE
+
+"
+"0","library(fastLink)"
+"0","library(igraph)"
+"2","
+Attaching package: ‘igraph’
+
+"
+"2","The following objects are masked from ‘package:lubridate’:
+
+    %--%, union
+
+"
+"2","The following objects are masked from ‘package:dplyr’:
+
+    as_data_frame, groups, union
+
+"
+"2","The following objects are masked from ‘package:purrr’:
+
+    compose, simplify
+
+"
+"2","The following object is masked from ‘package:tidyr’:
+
+    crossing
+
+"
+"2","The following object is masked from ‘package:tibble’:
+
+    as_data_frame
+
+"
+"2","The following objects are masked from ‘package:stats’:
+
+    decompose, spectrum
+
+"
+"2","The following object is masked from ‘package:base’:
+
+    union
+
+"

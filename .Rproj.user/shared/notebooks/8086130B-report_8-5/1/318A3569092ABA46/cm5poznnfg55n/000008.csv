@@ -1,0 +1,176 @@
+"0","block_out <- blockData(dfA = for_RL, dfB = for_RL, varnames = c(""language""))
+"
+"1","
+"
+"1","===================="
+"1"," "
+"1","
+"
+"1","blockData(): Blocking Methods for Record Linkage
+"
+"1","===================="
+"1"," "
+"1","
+
+"
+"1","Blocking variables.
+"
+"1","    Blocking variable"
+"1"," "
+"1","language"
+"1"," "
+"1","using"
+"1"," "
+"1","exact"
+"1"," "
+"1","blocking.
+"
+"1","
+"
+"1","Combining blocked variables for final blocking assignments.
+
+"
+"0","# Subset dfA into blocks"
+"0","dfA_block1 <- for_RL[block_out$block.1$dfA.inds,]"
+"0","dfA_block2 <- for_RL[block_out$block.2$dfA.inds,]"
+"0",""
+"0","# Subset dfB into blocks"
+"0","dfB_block1 <- for_RL[block_out$block.1$dfB.inds,]"
+"0","dfB_block2 <- for_RL[block_out$block.2$dfB.inds,]"
+"0",""
+"0","## Ted: Let's discard that the problem comes from names:"
+"0","matches_FastLink <- fastLink("
+"0","  dfA = dfA_block1, dfB = dfB_block1,"
+"0","  varnames = c(""first_name"", ""last_name"", ""age"", ""email""),"
+"0","  stringdist.match = c(""first_name"", ""last_name"", ""email""),"
+"0","  numeric.match = c(""age""),"
+"0","  partial.match = c(""first_name"", ""last_name"", ""email"", ""age"")"
+"0",")"
+"1","
+"
+"1","===================="
+"1"," "
+"1","
+"
+"1","fastLink(): Fast Probabilistic Record Linkage
+"
+"1","===================="
+"1"," "
+"1","
+
+"
+"1","If you set return.all to FALSE, you will not be able to calculate a confusion table as a summary statistic.
+"
+"1","dfA and dfB are identical, assuming deduplication of a single data set.
+Setting return.all to FALSE.
+
+"
+"1","Calculating matches for each variable.
+"
+"2","Warning in obj$checkFunc :"
+"2","
+ "
+"2"," closing unused connection 10 (<-DESKTOP-BQTENBN:11544)
+"
+"2","Warning in obj$checkFunc :"
+"2","
+ "
+"2"," closing unused connection 9 (<-DESKTOP-BQTENBN:11544)
+"
+"2","Warning in obj$checkFunc :"
+"2","
+ "
+"2"," closing unused connection 8 (<-DESKTOP-BQTENBN:11544)
+"
+"2","Warning in obj$checkFunc :"
+"2","
+ "
+"2"," closing unused connection 7 (<-DESKTOP-BQTENBN:11544)
+"
+"2","Warning in obj$checkFunc :"
+"2","
+ "
+"2"," closing unused connection 6 (<-DESKTOP-BQTENBN:11544)
+"
+"2","Warning in obj$checkFunc :"
+"2","
+ "
+"2"," closing unused connection 5 (<-DESKTOP-BQTENBN:11544)
+"
+"2","Warning in obj$checkFunc :"
+"2","
+ "
+"2"," closing unused connection 4 (<-DESKTOP-BQTENBN:11544)
+"
+"2","Warning in UseMethod(""getIterVal"") :"
+"2","
+ "
+"2"," closing unused connection 10 (<-DESKTOP-BQTENBN:11544)
+"
+"2","Warning in UseMethod(""getIterVal"") :"
+"2","
+ "
+"2"," closing unused connection 9 (<-DESKTOP-BQTENBN:11544)
+"
+"2","Warning in UseMethod(""getIterVal"") :"
+"2","
+ "
+"2"," closing unused connection 8 (<-DESKTOP-BQTENBN:11544)
+"
+"2","Warning in UseMethod(""getIterVal"") :"
+"2","
+ "
+"2"," closing unused connection 7 (<-DESKTOP-BQTENBN:11544)
+"
+"2","Warning in UseMethod(""getIterVal"") :"
+"2","
+ "
+"2"," closing unused connection 6 (<-DESKTOP-BQTENBN:11544)
+"
+"2","Warning in UseMethod(""getIterVal"") :"
+"2","
+ "
+"2"," closing unused connection 5 (<-DESKTOP-BQTENBN:11544)
+"
+"2","Warning in UseMethod(""getIterVal"") :"
+"2","
+ "
+"2"," closing unused connection 4 (<-DESKTOP-BQTENBN:11544)
+"
+"2","Warning in obj$checkFunc :"
+"2","
+ "
+"2"," closing unused connection 10 (<-DESKTOP-BQTENBN:11544)
+"
+"2","Warning in obj$checkFunc :"
+"2","
+ "
+"2"," closing unused connection 9 (<-DESKTOP-BQTENBN:11544)
+"
+"2","Warning in obj$checkFunc :"
+"2","
+ "
+"2"," closing unused connection 8 (<-DESKTOP-BQTENBN:11544)
+"
+"2","Warning in obj$checkFunc :"
+"2","
+ "
+"2"," closing unused connection 7 (<-DESKTOP-BQTENBN:11544)
+"
+"2","Warning in obj$checkFunc :"
+"2","
+ "
+"2"," closing unused connection 6 (<-DESKTOP-BQTENBN:11544)
+"
+"2","Warning in obj$checkFunc :"
+"2","
+ "
+"2"," closing unused connection 5 (<-DESKTOP-BQTENBN:11544)
+"
+"2","Warning in obj$checkFunc :"
+"2","
+ "
+"2"," closing unused connection 4 (<-DESKTOP-BQTENBN:11544)
+"
+"2","Error: cannot allocate vector of size 64.0 Mb
+"

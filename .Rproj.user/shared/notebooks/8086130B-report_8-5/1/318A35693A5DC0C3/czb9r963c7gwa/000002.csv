@@ -1,0 +1,8 @@
+"0","#ugh let's see
+contacts_for_igraph[[2]] <- contacts_for_igraph[[2]] %>% mutate(inmate_id = inmate_id - 39438,
+                                                                contact_id = contact_id - 22693)
+"
+"2","Error: Problem with `mutate()` input `contact_id`.
+[31mx[39m object 'contact_id' not found
+[34mi[39m Input `contact_id` is `contact_id - 22693`.
+"

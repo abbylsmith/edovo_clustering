@@ -1,0 +1,25 @@
+{
+    "id": "630C9E95",
+    "path": "~/edovo/clustering_analysis.R",
+    "project_path": "clustering_analysis.R",
+    "type": "r_source",
+    "hash": "0",
+    "contents": "",
+    "dirty": true,
+    "created": 1600449935989.0,
+    "source_on_save": false,
+    "relative_order": 5,
+    "properties": {
+        "tempName": "Untitled4",
+        "cursorPosition": "21,62",
+        "scrollLine": "6"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1601677339,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1601677496272,
+    "read_only": false,
+    "read_only_alternatives": []
+}

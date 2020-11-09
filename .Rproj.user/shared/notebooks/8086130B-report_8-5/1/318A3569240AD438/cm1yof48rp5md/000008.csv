@@ -1,0 +1,230 @@
+"0","for(i in 4:10){ ## Just to diagnose, letâ€™s try this just in 3 blocks
+  ## 1. Subset original data to form block
+  for_RL.b <- for_RL[for_RL$block == i, ]
+ 
+  ## 2. fastLink applied to a block
+  matches_FastLink <- fastLink(
+    dfA = for_RL.b, dfB = for_RL.b,
+    varnames = c(""first_name"", ""last_name"", ""age""),
+    stringdist.match = c(""first_name"", ""last_name""),
+    numeric.match = 'age',
+    partial.match = c(""first_name"", ""last_name""),
+    cut.a = 0.94, cut.p = 0.84,
+    n.cores = 4, ## we wonâ€™t use all the cores in your machine (to avoid eating all the RAM)
+    dedupe = FALSE, ## this is to avoid a one-to-one match
+    threshold.match = 0.70
+  )
+ 
+  ## Fixing the issue with getMatches manually:
+  library('data.table')
+  id_tmp <- data.frame(id = 1:nrow(for_RL.b))
+  matches <- data.table(cbind(matches_FastLink$matches$inds.b[matches_FastLink$posterior >= 0.90],
+                              matches_FastLink$matches$inds.a[matches_FastLink$posterior >= 0.90]))
+ 
+  pasteT <- function(x) {
+    x = sort(x)
+    x = paste(x, collapse = "","")
+    x
+  }
+ 
+  matches[, `:=`(V3, pasteT(V2)), by = ""V1""]
+  ans <- matches[, .(id_2 = unique(V3)), by = ""V1""]
+  ans$id_2 <- as.numeric(as.factor(ans$id_2))
+  colnames(ans) <- c(""id"", ""id_2"")
+  out_df <- merge(id_tmp, ans, by = ""id"")
+ 
+  for_RL.b$id <- 1:nrow(for_RL.b)
+  for_RL.b <- merge(for_RL.b, out_df, by = ""id"", all.x = T) ## This is where getMatches breaks (if it does so)
+  for_RL.b$id_2[is.na(for_RL.b$id_2)] <- (max(for_RL.b$id_2, na.rm = T) + 1):(max(for_RL.b$id_2, na.rm = T) + sum(is.na(for_RL.b$id_2)))
+ 
+  library(stringr)
+  for_RL.b$id_2 <- paste0(""C"", str_pad(i, 3, pad = ""0""), ""_"", str_pad(for_RL.b$id_2, 7, pad = ""0""))
+ 
+  save(for_RL.b, file = paste0(""./data_"", ""C"", str_pad(i, 3, pad = ""0""), ""_Dedup.RData""))
+  rm(records.temp, for_RL.b); gc() ## remove temp objects
+}
+"
+"1","
+"
+"1","===================="
+"1"," "
+"1","
+"
+"1","fastLink(): Fast Probabilistic Record Linkage
+"
+"1","===================="
+"1"," "
+"1","
+
+"
+"1","If you set return.all to FALSE, you will not be able to calculate a confusion table as a summary statistic.
+"
+"1","dfA and dfB are identical, assuming deduplication of a single data set.
+Setting return.all to FALSE.
+
+"
+"1","Calculating matches for each variable.
+"
+"2","Warning in .Internal(gc(verbose, reset, full)) :"
+"2","
+ "
+"2"," closing unused connection 7 (<-DESKTOP-BQTENBN:11033)
+"
+"2","Warning in .Internal(gc(verbose, reset, full)) :"
+"2","
+ "
+"2"," closing unused connection 6 (<-DESKTOP-BQTENBN:11033)
+"
+"2","Warning in .Internal(gc(verbose, reset, full)) :"
+"2","
+ "
+"2"," closing unused connection 5 (<-DESKTOP-BQTENBN:11033)
+"
+"2","Warning in .Internal(gc(verbose, reset, full)) :"
+"2","
+ "
+"2"," closing unused connection 4 (<-DESKTOP-BQTENBN:11033)
+"
+"2","Warning in for (i in unique(c(1L, 2L, n - 1L, n))) if (is.character(all.equal(object[i,  :"
+"2","
+ "
+"2"," closing unused connection 11 (<-DESKTOP-BQTENBN:11033)
+"
+"2","Warning in for (i in unique(c(1L, 2L, n - 1L, n))) if (is.character(all.equal(object[i,  :"
+"2","
+ "
+"2"," closing unused connection 10 (<-DESKTOP-BQTENBN:11033)
+"
+"2","Warning in for (i in unique(c(1L, 2L, n - 1L, n))) if (is.character(all.equal(object[i,  :"
+"2","
+ "
+"2"," closing unused connection 9 (<-DESKTOP-BQTENBN:11033)
+"
+"2","Warning in for (i in unique(c(1L, 2L, n - 1L, n))) if (is.character(all.equal(object[i,  :"
+"2","
+ "
+"2"," closing unused connection 8 (<-DESKTOP-BQTENBN:11033)
+"
+"1","Getting counts for parameter estimation.
+"
+"1","    Parallelizing calculation using OpenMP. "
+"1","4"
+"1"," threads out of "
+"1","8"
+"1"," are used."
+"1","
+"
+"1","Running the EM algorithm.
+"
+"1","Getting the indices of estimated matches.
+"
+"1","    Parallelizing calculation using OpenMP. "
+"1","4"
+"1"," threads out of "
+"1","8"
+"1"," are used."
+"1","
+"
+"1","Calculating the posterior for each pair of matched observations.
+"
+"1","Getting the match patterns for each estimated match.
+"
+"2","data.table 1.13.0 using 4 threads (see ?getDTthreads).  Latest news: r-datatable.com
+"
+"2","
+Attaching package: ‘data.table’
+
+"
+"2","The following objects are masked from ‘package:dplyr’:
+
+    between, first, last
+
+"
+"2","The following object is masked from ‘package:purrr’:
+
+    transpose
+
+"
+"2","object 'records.temp' not found"
+"1","
+"
+"1","===================="
+"1"," "
+"1","
+"
+"1","fastLink(): Fast Probabilistic Record Linkage
+"
+"1","===================="
+"1"," "
+"1","
+
+"
+"1","If you set return.all to FALSE, you will not be able to calculate a confusion table as a summary statistic.
+"
+"1","dfA and dfB are identical, assuming deduplication of a single data set.
+Setting return.all to FALSE.
+
+"
+"1","Calculating matches for each variable.
+"
+"2","Warning in rep_len(write, length(socklist)) :"
+"2","
+ "
+"2"," closing unused connection 7 (<-DESKTOP-BQTENBN:11033)
+"
+"2","Warning in rep_len(write, length(socklist)) :"
+"2","
+ "
+"2"," closing unused connection 6 (<-DESKTOP-BQTENBN:11033)
+"
+"2","Warning in rep_len(write, length(socklist)) :"
+"2","
+ "
+"2"," closing unused connection 5 (<-DESKTOP-BQTENBN:11033)
+"
+"2","Warning in rep_len(write, length(socklist)) :"
+"2","
+ "
+"2"," closing unused connection 4 (<-DESKTOP-BQTENBN:11033)
+"
+"2","Warning in .Internal(gc(verbose, reset, full)) :"
+"2","
+ "
+"2"," closing unused connection 7 (<-DESKTOP-BQTENBN:11033)
+"
+"2","Warning in .Internal(gc(verbose, reset, full)) :"
+"2","
+ "
+"2"," closing unused connection 6 (<-DESKTOP-BQTENBN:11033)
+"
+"2","Warning in .Internal(gc(verbose, reset, full)) :"
+"2","
+ "
+"2"," closing unused connection 5 (<-DESKTOP-BQTENBN:11033)
+"
+"2","Warning in .Internal(gc(verbose, reset, full)) :"
+"2","
+ "
+"2"," closing unused connection 4 (<-DESKTOP-BQTENBN:11033)
+"
+"2","Warning:"
+"2"," closing unused connection 11 (<-DESKTOP-BQTENBN:11033)
+"
+"2","Warning:"
+"2"," closing unused connection 10 (<-DESKTOP-BQTENBN:11033)
+"
+"2","Warning:"
+"2"," closing unused connection 9 (<-DESKTOP-BQTENBN:11033)
+"
+"2","Warning:"
+"2"," closing unused connection 8 (<-DESKTOP-BQTENBN:11033)
+"
+"1","Getting counts for parameter estimation.
+"
+"1","    Parallelizing calculation using OpenMP. "
+"1","4"
+"1"," threads out of "
+"1","8"
+"1"," are used."
+"1","
+"

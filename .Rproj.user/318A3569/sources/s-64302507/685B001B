@@ -1,0 +1,26 @@
+{
+    "id": "685B001B",
+    "path": "~/edovo/parsing_json.R",
+    "project_path": "parsing_json.R",
+    "type": "r_source",
+    "hash": "0",
+    "contents": "",
+    "dirty": false,
+    "created": 1604939318955.0,
+    "source_on_save": false,
+    "relative_order": 3,
+    "properties": {
+        "tempName": "Untitled1",
+        "cursorPosition": "83,0",
+        "scrollLine": "60",
+        "source_window_id": ""
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1604939476,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1604939476473,
+    "read_only": false,
+    "read_only_alternatives": []
+}
