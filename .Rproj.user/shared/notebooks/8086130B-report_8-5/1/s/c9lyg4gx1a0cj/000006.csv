@@ -1,7 +1,0 @@
-"0","contact_graph_ER <-map(contacts_for_igraph_ER, 
-                       function(x) igraph::graph_from_data_frame(x))
-"
-"2","In `d' `NA' elements were replaced with string ""NA"""
-"2","In `d' `NA' elements were replaced with string ""NA"""
-"2","In `d' `NA' elements were replaced with string ""NA"""
-"2","In `d' `NA' elements were replaced with string ""NA"""

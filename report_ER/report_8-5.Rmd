@@ -19,16 +19,20 @@ library(skimr)
 library(RecordLinkage)
 library(fastLink)
 library(igraph)
-library(safejoin)
+library(safejoin) 
+
+setwd("../")
+
+
 ```
 
 
 ```{r}
 
 #-- read in the data, basically do the SQL join I should have done before...
-edovo_user_data <- read_csv('inmates_Edovo.csv')
+edovo_user_data <- read_csv('general_datasets/inmates_Edovo.csv')
 
-edovo_id <- read_csv('user_IDs.csv')
+edovo_id <- read_csv('report_ER/user_IDs.csv')
 
 skim(edovo_user_data)
 #nrow(edovo_user_data)
@@ -117,7 +121,7 @@ for_RL <- edovo_user_data %>% select(-id,
 #first_pass_RL <- RLBigDataDedup(for_RL, strcmp=c(1:2, 12), blockfld = c(3,11)) #block on BIRTH DATE, language
 #saveRDS(first_pass_RL,'first_pass_RL.RDS')
 
-first_pass_RL <- readRDS('first_pass_RL.RDS')
+first_pass_RL <- readRDS('abby_RL_outputs/first_pass_RL.RDS')
 
 
 #--- look at all pair
@@ -202,7 +206,7 @@ deduplicated_data <- do.call('rbind', results)
 
 ```{r}
 #--- looking across facilities
-facility_ID_orig <- read_csv('facility_IDs.csv')
+facility_ID_orig <- read_csv('general_data/facility_IDs.csv')
 
 
 facilities_to_include <- c("Cleveland County","Kane County", 
@@ -351,7 +355,7 @@ sponsors %>%
 ```{r}
 #---- construct network (set vertices, edges)
 
-contacts <- read_csv('contact_network.csv')
+contacts <- read_csv('report_ER/contact_network.csv')
 
 contacts_for_igraph <- contacts %>%
   filter(status == 'ACTIVE') %>%

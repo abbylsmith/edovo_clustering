@@ -1,3 +1,0 @@
-"0","contact_graph_Kane_ER <-  igraph::graph_from_data_frame(contacts_for_igraph_Kane)
-"
-"2","In `d' `NA' elements were replaced with string ""NA"""

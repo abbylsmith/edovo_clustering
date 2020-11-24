@@ -1,0 +1,616 @@
+---
+title: "Clustering Analysis"
+author: "Abby Smith"
+date: "11/10/2020"
+output: pdf_document
+---
+
+
+```{r}
+knitr::opts_chunk$set(echo=F, cache=T, results='hide', message = F, warning = F)
+
+```
+
+```{r}
+library(tidyverse)
+library(janitor)
+
+library(cluster)
+library(Rtsne) # shows our clustering in a 2D space
+
+#-- more clustering related packages
+library(clustMixType)
+library(FeatureImpCluster)
+library(PCAmixdata) #PCA -> clustering with mixed data (code in clustering_analysis.R)
+
+library(factoextra)
+library(FactoMineR)
+
+
+```
+
+## Questions of Interest
+
+Edovo is interested in a clustering of the course content. They have over 15,000 courses. Each course has tags attached to it, representing different topics that are covered in the course (such as "CHRISTIANITY"), but also features of the course itself (such as "INTERMEDIATE").
+
+We have the tags for each course, and the navigation map of courses. 
+
+We are interested in:
+
+- What courses have similar tags? 
+- What courses have similar features?
+- What are the most important features in determining similar tags?
+- How can we incorporate the navigation map in our clustering?
+- What do the users look like that are in a given tag cluster? In terms of time as active user, facility, etc. 
+
+(**UPDATE 11/16**): Not only do we want a clustering analysis of users + content; we want to determine an *engagement score* for each user on the platform. 
+
+- What clusters of content are "quality"? Can we provide a quantitative metric for that?
+- How can we collapse this into a score?
+
+## The Data
+
+We get the data into a **wide** format- each row represents a course, its title, lesson count, total page count,number of items across the pages and then columns representing each tag and a corresponding column with that tag's ID. Because a course has up to 32 different tags, there are $32 \times 2 = 64$ different columns. 
+
+```{r}
+
+#--- this is a joined .csv with inmate_id, course_id and inmate information! 
+# ---- TODO: when to use this?
+courses <- read_csv('clustering_datasets/attempting_clustering.csv')
+
+#----reshape course_content so that one tag per column
+course_content <- read_csv('clustering_datasets/course_node_count_tags.csv')
+
+
+#---- USE THIS: new CSV Mike sent over with the IDs attached to each tag
+course_content_updated <- read_csv('clustering_datasets/course_tags_with_IDS.csv')
+
+
+course_tags <- course_content_updated %>% 
+  mutate(split_content_tags = str_split(content_tags, ",")) %>% 
+  unnest(split_content_tags) %>%
+  group_by(course_id) %>%
+  separate(split_content_tags, c("name","id_number"), sep =  "-") %>% 
+  mutate(name = toupper(name)) %>%
+  #---- filter out non-relevant tags
+  filter(name != "COURSE" & name != "ACADEMIC" & 
+           name != "EARN" & name != "SPEND" & name !="INFORMATION" &
+           name != "RESOURCES" & name != "NEW_CONTENT" & 
+           !endsWith(name, 'ONLY')) %>% #-- _only are the facility specific tags we don't want
+  mutate(N = paste0('tag', row_number())) %>%
+  pivot_wider(names_from='N', values_from= c("name", "id_number")) %>%
+  mutate_at(vars(starts_with("name")), list(~na_if(.,""))) %>%
+  mutate_at(vars(starts_with('name')), function(x) as.factor(x)) %>%
+  mutate_at(vars(starts_with('id_number')), function(x) as.factor(x))
+
+
+
+head(course_tags)
+
+
+```
+
+
+### Question of Representation: Long vs. Wide?
+
+
+## Key Decisions in Clustering
+
+- Do we one-hot encode categorical variables?
+- How many clusters do we use?
+- Should we use a joint dimension reduction + clustering approach? 
+- How to deal with many, many categorical features (tags)?
+
+
+## Clustering Approaches
+
+In our clustering we want to prioritize **numerical** features over **categorical**. More specifically-- we want to account for hierchachy of the course in the JSON navigation map. If two users both watched just 2 pages of a very specifically tagged activity-- we want to weight that higher than tags that are further up in the hiercharchy. 
+ 
+### K-Means with Gower Distance
+
+In order for a yet-to-be-chosen algorithm to group observations together, we first need to define some notion of (dis)similarity between observations. A popular choice for clustering is Euclidean distance. However, Euclidean distance is only valid for continuous variables, and thus is not applicable here. In order for a clustering algorithm to yield sensible results, we have to use a distance metric that can handle mixed data types. In this case, we will use something called Gower distance.
+
+We will look at a few different approaches from this clustering. We will plot a low dimensional representation for each of these clusterings
+
+
+```{r}
+
+ 
+#---- clustering just the courses using PAM + gower distance
+#---- gower distance good for mixed data
+#--- BUT !! issue: how do we weight things ?
+gower_dist <- daisy(course_tags %>%
+                      select(lesson_count, total_page_count, total_page_item_count, 
+                             !!paste0('id_number_tag', 1:32, sep="")), 'gower')
+
+gower_mat <- as.matrix(gower_dist)
+
+#' Print most similar courses
+course_tags[which(gower_mat == min(gower_mat[gower_mat != min(gower_mat)]), arr.ind = TRUE)[1, ], ]
+
+
+#print most dissimilar courses
+course_tags[which(gower_mat == max(gower_mat[gower_mat != max(gower_mat)]), arr.ind = TRUE)[1, ], ]
+
+
+  sil_width <- c(NA)
+  for(i in 2:20){  
+    pam_fit <- pam(gower_dist, diss = TRUE, k = i)  
+    sil_width[i] <- pam_fit$silinfo$avg.width  
+  }
+  plot(1:20, sil_width,
+       xlab = "Number of clusters",
+       ylab = "Silhouette Width")
+  lines(1:20, sil_width)
+  
+  k <- 16
+  pam_fit <- pam(gower_dist, diss = TRUE, k)
+  pam_results <- course_tags %>%
+    ungroup() %>% 
+    mutate(cluster = pam_fit$clustering) %>%
+    group_by(cluster) %>%
+    do(the_summary = summary(.))
+  pam_results$the_summary
+
+
+
+#----- looking at lower dimensional space
+  tsne_obj <- Rtsne(gower_dist, is_distance = TRUE)
+  tsne_data <- tsne_obj$Y %>%
+    data.frame() %>%
+    setNames(c("X", "Y")) %>%
+    mutate(cluster = factor(pam_fit$clustering))
+  ggplot(aes(x = X, y = Y), data = tsne_data) +
+    geom_point(aes(color = cluster)) + ggtitle("Clustering of Courses based on Tags")
+
+
+# Course + Inmate Demographic Info ----------------------------------------
+
+#---- joining with inmate information, perform clustering
+  
+  course_inmates <- courses %>% select(inmate_id, course_id, 
+                                       quiz_score,
+                                       language, 
+                                       spent_time,
+                                       total_points, 
+                                       total_spent_points,
+                                       facility_id, 
+                                       created_at,
+                                       updated_at_1)
+  
+  #--- only taking the top 5 tags
+  course_tags <- course_tags %>% select(course_id, lesson_count, total_page_count,
+                                        total_page_item_count,!!paste0('id_number_tag', 1:5, sep=""))
+    
+  inmate_courses <- course_tags %>%
+    left_join(course_inmates, by=c("course_id")) %>% 
+    select(!!paste0('id_number_tag', 1:5, sep=""), inmate_id, course_id, total_points, total_spent_points,
+           language, updated_at_1) %>%
+    group_by(inmate_id) %>%
+    arrange(desc(updated_at_1)) %>%
+    summarise_all(funs(toString(na.omit(.)))) %>%
+    #select(!!paste0('tag', 1:5, sep="")) %>%
+    as_tibble      %>% # convert to table
+    purrr::modify(~replace(.x,lengths(.x)==0,list(NA))) %>% # replace empty elements by list(NA) so they have length 1 too
+    modify_if(~all(lengths(.x)==1),unlist) %>%
+    separate('id_number_tag1', paste("id_number_tag1", 'course', 1:10, sep="_"), sep=",", extra="drop") %>%
+    separate('id_number_tag2', paste("id_number_tag2", 'course', 1:10, sep="_"), sep=",", extra="drop") %>%
+    separate('id_number_tag3', paste("id_number_tag3", 'course', 1:10, sep="_"), sep=",", extra="drop") %>%
+    separate('id_number_tag4', paste("id_number_tag4", 'course',1:10, sep="_"), sep=",", extra="drop") %>%
+    separate('id_number_tag5', paste("id_number_tag5", 'course', 1:10, sep="_"), sep=",", extra="drop") %>%
+    mutate_all(as.factor) 
+  
+  gower_dist <- daisy(inmate_courses %>%
+                        select(-course_id, -inmate_id, -updated_at_1), 'gower')
+  gower_mat <- as.matrix(gower_dist)
+  
+  #print most similar courses
+  View(inmate_courses[which(gower_mat == min(gower_mat[gower_mat != min(gower_mat)]), arr.ind = TRUE)[1, ], ] %>% select_if(~sum(!is.na(.)) > 0))
+  
+  
+  #print most dissimilar courses
+  inmate_courses[which(gower_mat == max(gower_mat[gower_mat != max(gower_mat)]), arr.ind = TRUE)[1, ], ]
+
+
+sil_width <- c(NA)
+for(i in 2:20){  
+  pam_fit <- pam(gower_dist, diss = TRUE, k = i)  
+  sil_width[i] <- pam_fit$silinfo$avg.width  
+}
+plot(1:20, sil_width,
+     xlab = "Number of clusters",
+     ylab = "Silhouette Width")
+lines(1:20, sil_width)
+
+k <- 14
+pam_fit <- pam(gower_dist, diss = TRUE, k)
+pam_results <- inmate_courses %>%
+  ungroup() %>% 
+  mutate(cluster = pam_fit$clustering) %>%
+  group_by(cluster) %>%
+  do(the_summary = summary(.))
+pam_results$the_summary
+
+
+# looking at lower dimensional space
+tsne_obj <- Rtsne(gower_dist, is_distance = TRUE)
+tsne_data <- tsne_obj$Y %>%
+  data.frame() %>%
+  setNames(c("X", "Y")) %>%
+  mutate(cluster = factor(pam_fit$clustering))
+ggplot(aes(x = X, y = Y), data = tsne_data) +
+  geom_point(aes(color = cluster)) + ggtitle("Clustering of All Inmates, Based on Top 5 Tags") 
+  
+
+```
+
+We're also curious, what do inmates in the same cluster have in common? 
+
+```{r, eval=F}
+
+#--- more inspection of this; What do the inmates in cluster have in common?
+
+  inmate_demo_info <- read_csv('general_datasets/inmates_edovo.csv')
+  
+  inmate_demo <- inmate_demo_info %>% 
+    mutate(id = as.factor(id), inmate_id =as.factor(inmate_id)) %>%
+    mutate(age = lubridate::time_length(Sys.Date() - birth_date, unit='days') / 365.25) %>%
+    select(id,first_name,  last_name, age, facility_id, total_points, total_spent_points)
+  
+  
+  inmate_demo_with_clustering <- inmate_courses %>%
+    ungroup() %>% 
+    mutate(cluster = pam_fit$clustering) %>%
+    group_by(cluster) %>%
+    mutate(inmate_id = as.factor(inmate_id)) %>%
+    select(-total_points, -total_spent_points) %>%
+    inner_join(inmate_demo, by=c('inmate_id' = 'id' )) %>%
+    ungroup()
+   
+  
+  
+  inmate_demo_with_clustering %>% 
+    filter(cluster == 1)%>%
+    select(first_name, last_name, age, facility_id, language, 
+                                           total_points, total_spent_points)
+
+  
+  distinct_tags <-inmate_demo_with_clustering %>%
+    select(starts_with('tag')) %>%
+    rowwise() %>%
+    do(data.frame(., count_distinct_tags = n_distinct(unlist(.))))
+  
+  inmate_demo_with_clustering $count_distinct_tags <- distinct_tags$count_distinct_tags
+  
+  #avg number of points + age per cluster
+  inmate_demo_with_clustering %>% 
+    #left_join(distinct_tags %>% select(inmate_id, count_distinct_tags)) %>%
+    group_by(cluster)%>%
+    summarise(mean_total_points = mean(total_points, na.rm=T),
+              mean_spent_points= mean(total_spent_points, na.rm=T),
+              point_diff = mean_total_points - mean_spent_points, # How many more points earned vs. spent?
+              mean_age = mean(age, na.rm=T),
+              mean_distinct_tags = mean(count_distinct_tags, na.rm=T),
+              most_common_tag1_course1 = modeest::mlv(id_number_tag1_course_1, method=mfv),
+              most_common_tag2_course1 = modeest::mlv(id_number_tag2_course_1, method=mfv),
+              most_common_tag1_course2 = modeest::mlv(id_number_tag1_course_2, method=mfv))
+  
+  
+  for_plot <-inmate_demo_with_clustering  %>% group_by(cluster,facility_id) %>%
+    summarise(n= n()) %>%
+    mutate(freq = n / sum(n))
+  
+  ggplot(for_plot, 
+         aes(x=as.factor(facility_id), y=n)) + geom_col()+ facet_wrap(~cluster) +ggtitle('Different Facilities per Clutser')
+    
+    
+
+  #number of members in each cluster in a certain facility
+  View(inmate_demo_with_clustering  %>% group_by(cluster) %>% count(facility_id))
+
+
+```
+
+
+
+Because we're interested in the engagement patterns of users, it's probably a good idea for us to account for time as an active user in our clustering. 
+
+```{r}
+
+  inmate_demo_info <- read_csv('general_datasets/inmates_edovo.csv')
+  
+  
+active_users<- inmate_demo_info %>% 
+    mutate(id = as.factor(id), inmate_id =as.factor(inmate_id)) %>%
+    mutate(age = lubridate::time_length(Sys.Date() - birth_date, unit='days') / 365.25,
+           user_time =lubridate::time_length(Sys.Date() - lubridate::as_date(created_at), unit='days') / 365.25 ) %>%
+    select(id,first_name,  last_name, age, facility_id, total_points, total_spent_points, 
+           status, user_time) %>%
+    filter(status=='ACTIVE')
+  
+  
+  top_tags_per_inmate<- inmate_courses %>%
+    ungroup() %>% 
+    mutate(cluster = pam_fit$clustering) %>%
+    group_by(cluster) %>%
+    mutate(inmate_id = as.factor(inmate_id)) %>%
+    select(-total_points, -total_spent_points) %>%
+    inner_join(active_users, by=c('inmate_id' = 'id' )) %>%
+    ungroup()
+  
+  
+  
+  distinct_tags <-top_tags_per_inmate %>%
+    select(starts_with('id_number_tag')) %>%
+    rowwise() %>%
+    do(data.frame(., count_distinct_tags = n_distinct(unlist(.))))
+  
+  top_tags_per_inmate$count_distinct_tags <- distinct_tags$count_distinct_tags
+  
+  #avg number of points + age per cluster
+  top_tags_per_inmate %>% 
+    #left_join(distinct_tags %>% select(inmate_id, count_distinct_tags)) %>%
+    group_by(cluster)%>%
+    summarise(mean_total_points = mean(total_points, na.rm=T),
+              mean_spent_points= mean(total_spent_points, na.rm=T),
+              point_diff = mean_total_points - mean_spent_points,
+              mean_age = mean(age, na.rm=T),
+              mean_user_time  =mean(user_time, na.rm=T),
+              mean_distinct_tags = mean(count_distinct_tags, na.rm=T),
+              most_common_tag1_course1 = modeest::mlv(id_number_tag1_course_1, method=mfv),
+              most_common_tag2_course1 = modeest::mlv(id_number_tag2_course_1, method=mfv),
+              most_common_tag1_course2 = modeest::mlv(id_number_tag1_course_2, method=mfv))
+  
+  
+  
+  k <- 15
+  pam_fit <- pam(gower_dist, diss = TRUE, k)
+  pam_results <- inmate_courses %>%
+    ungroup() %>% 
+    mutate(cluster = pam_fit$clustering) %>%
+    group_by(cluster) %>%
+    do(the_summary = summary(.))
+  pam_results$the_summary
+  
+  
+  
+  # looking at lower dimensional space
+  tsne_obj <- Rtsne(gower_dist, is_distance = TRUE)
+  tsne_data <- tsne_obj$Y %>%
+    data.frame() %>%
+    setNames(c("X", "Y")) %>%
+    mutate(cluster = factor(pam_fit$clustering))
+  ggplot(aes(x = X, y = Y), data = tsne_data) +
+    geom_point(aes(color = cluster)) + ggtitle("")
+
+
+```
+
+
+Next, we split the time as an active user up into quantiles and perform the clustering. 
+
+```{r}
+#----- Recommendation from John: divide data into quantiles based on time as active user 
+
+  
+  #-- List, each element a tibble representing a quantile
+  course_inmates <- top_tags_per_inmate %>%
+    mutate(quantile = ntile(user_time, 5)) %>% 
+    group_by(quantile) %>% 
+    group_map( ~ .x)
+  
+  course_tags <- course_tags %>% select(course_id, lesson_count, total_page_count,
+                                        total_page_item_count,!!paste0('id_number_tag', 1:5, sep="")) %>%
+    mutate(course_id = as.factor(course_id))
+  
+  
+  
+  #--- takes in a quantiles of active users + performs clustering
+  #--- only looking at the top 5 tags 
+perform_clustering <- function(quant_tib){
+    inmate_courses <- course_tags %>%
+      left_join(quant_tib, by=c("course_id")) %>% 
+      select(!!paste0('id_number_tag', 1:5, sep=""), inmate_id, course_id, total_points, total_spent_points, user_time) %>%
+      group_by(inmate_id) %>%
+      mutate_at(vars(contains('tag')), funs(toString(na.omit((.))))) %>%
+      purrr::modify(~replace(.x,lengths(.x)==0,list(NA))) %>% # replace empty elements by list(NA) so they have length 1 too
+      modify_if(~all(lengths(.x)==1),unlist) %>%
+      separate('id_number_tag1', paste("id_number_tag1", 'course', 1:10, sep="_"), sep=",", extra="drop") %>%
+      separate('id_number_tag2', paste("id_number_tag2", 'course', 1:10, sep="_"), sep=",", extra="drop") %>%
+      separate('id_number_tag3', paste("id_number_tag3", 'course', 1:10, sep="_"), sep=",", extra="drop") %>%
+      separate('id_number_tag4', paste("id_number_tag4", 'course',1:10, sep="_"), sep=",", extra="drop") %>%
+      separate('id_number_tag5', paste("id_number_tag5", 'course', 1:10, sep="_"), sep=",", extra="drop") %>%
+      mutate_at(vars(contains("tag")), as.factor) %>%
+      mutate_if(is.double, as.numeric)
+    
+    gower_dist <- daisy(inmate_courses %>%
+                          select(-course_id, -inmate_id), 'gower')
+    gower_mat <- as.matrix(gower_dist)
+  
+  
+    k <- 10 #--- TODO: you could look at siloutte plot and pick out optimal k for each quantile?? 
+    pam_fit <- pam(gower_dist, diss = TRUE, k)
+    pam_results <- inmate_courses %>%
+      ungroup() %>% 
+      mutate(cluster = pam_fit$clustering) %>%
+      group_by(cluster) %>%
+      do(the_summary = summary(.))
+  
+    
+    # looking at lower dimensional space
+    tsne_obj <- Rtsne(gower_dist, is_distance = TRUE)
+    tsne_data <- tsne_obj$Y %>%
+      data.frame() %>%
+      setNames(c("X", "Y")) %>%
+      mutate(cluster = factor(pam_fit$clustering))
+    ggplot(aes(x = X, y = Y), data = tsne_data) +
+      geom_point(aes(color = cluster))+ ggtitle("Clustering of Users \n Split into Active User Quantiles \n Top 5 Tags in the Top 10 Courses")
+    
+    
+    
+  }
+  
+  
+  map(course_inmates, perform_clustering)
+  
+  
+```
+
+
+**THIS IS A BIG TO-DO**: Incorporating nav-map information. Here we have features like `total_pages` and `total_page_items` but we need to play around with weighting! 
+
+```{r}
+
+
+# Adding Navigation Map Information ---------------------------------------
+
+  
+#----- new Clustering based on total pages
+#---- new_joined_tags.csv comes from parsing_json.R
+  tags_with_parsed_json <- read_csv('clustering_datasets/new_joined_tags.csv') %>% select(-X1) %>%
+    mutate(tag_ID = as.factor(tag_ID), 
+           course_id = as.factor(course_id),
+           how_many_id = as.factor(how_many_id)) 
+  
+  
+  tags_with_parsed_json2 <- tags_with_parsed_json%>%
+    #---- need to impute median values for any sort of numeric feature
+    mutate_if(is.numeric, list(~ replace(., is.na(.), median(., na.rm = TRUE))))
+  
+  
+  
+  gower_dist <- daisy(tags_with_parsed_json2 %>%
+                        select(course_id,lesson_count, total_page_count, tag_ID,
+                               total_pages), 'gower')
+  
+  gower_mat <- as.matrix(gower_dist)
+  
+  # print most similar tags!
+  tags_with_parsed_json[which(gower_mat == min(gower_mat[gower_mat != min(gower_mat)]), 
+                               arr.ind = TRUE)[1, ],]
+  
+  
+  
+  sil_width <- c(NA)
+  for(i in 2:20){  
+    pam_fit <- pam(gower_dist, diss = TRUE, k = i)  
+    sil_width[i] <- pam_fit$silinfo$avg.width  
+  }
+  
+  plot(1:20, sil_width,
+       xlab = "Number of clusters",
+       ylab = "Silhouette Width")
+  lines(1:20, sil_width)
+  
+  k <- 2
+  pam_fit <- pam(gower_dist, diss = TRUE, k)
+  pam_results <- tags_with_parsed_json2 %>%
+    ungroup() %>% 
+    mutate(cluster = pam_fit$clustering) %>%
+    group_by(cluster) %>%
+    do(the_summary = summary(.))
+  pam_results$the_summary
+
+
+  # looking at lower dimensional space
+  tsne_obj <- Rtsne(gower_dist, is_distance = TRUE)
+  tsne_data <- tsne_obj$Y %>%
+    data.frame() %>%
+    setNames(c("X", "Y")) %>%
+    mutate(cluster = factor(pam_fit$clustering))
+  ggplot(aes(x = X, y = Y), data = tsne_data) +
+    geom_point(aes(color = cluster)) + ggtitle("Clustering with Nav Map Info")
+
+
+
+```
+
+
+### K Prototypes
+
+
+```{r}
+
+  tags_with_parsed_json <- read_csv('clustering_datasets/new_joined_tags.csv') %>% select(-X1) %>%
+    mutate(tag_ID = as.factor(tag_ID), 
+           course_id = as.factor(course_id),
+           how_many_id = as.factor(how_many_id),
+           parent_ID = as.factor(parent_ID)) %>%
+    select(-course_type, -json_id, -name,
+           -description, -created_at, -updated_at, -system)
+  
+  k_proto_object <- kproto(as.data.frame(tags_with_parsed_json), 12,
+                           lambda = 10000) # bigger lambda: partitions that emphasize differences between the categorical features,
+  k_proto_object$centers
+
+
+#--- omit NAs-- attach column
+  tags_with_parsed_json2 <- na.omit(tags_with_parsed_json)
+  tags_with_parsed_json2$cluster <- k_proto_object$cluster
+  
+  par(mfrow=c(1,2))
+  for(i in 1: 1:4){
+    plot(as.data.frame(tags_with_parsed_json2%>% select_if(is.numeric))[,1:i], 
+         col=tags_with_parsed_json2$cluster, main="K-prototypes")
+  }
+  
+  #--- Elbow Method for finding the optimal number of clusters
+    set.seed(123)
+    
+    # Compute and plot wss for k = 2 to k = 15.
+    k.max <- 20
+    wss <- sapply(1:k.max, 
+                  function(k){kproto(as.data.frame(tags_with_parsed_json2), k)$tot.withinss})
+    wss
+    plot(1:k.max, wss,
+         type="b", pch = 19, frame = FALSE, 
+         xlab="Number of clusters K",
+         ylab="Total within-clusters sum of squares")
+
+```
+
+### What features are most important?
+
+```{r}
+#--- What Features are the most important?
+FeatureImp_res <- FeatureImpCluster(k_proto_object,as.data.table(tags_with_parsed_json))
+plot(FeatureImp_res,tags_with_parsed_json,color="type")
+
+
+```
+
+### Dimension Reduction? Or at least PCA/ FAMD 
+
+Assuming we represent the data in **wide** format-- we may want to look into joint dimension reduction + clustering algorithms. UPDATE: this ay not be a good idea unless we have exclusively numerical features. 
+
+We note that the first two components when running these things capture **very little variance**. So how useful is this for anything? :'(
+
+I think this is necessary if we want to make the clustering unit **INMATES**--the data frame would have many columns if we had each tag ID for each course associated with the inmate, so I think this definetely has merits.
+
+
+
+```{r}
+test_famd <- FAMD(as.data.frame(tags_with_parsed_json2 %>% select(-content_tags, -title.x)), ncp = 5, sup.var = NULL, ind.sup = NULL, graph = TRUE)
+
+var <- get_famd_var(test_famd)
+# Coordinates of variables
+head(var$coord)
+# Cos2: quality of representation on the factore map
+head(var$cos2)
+# Contributions to the  dimensions
+head(var$contrib)
+
+# Contribution to the first dimension
+fviz_contrib(test_famd, "var", axes = 1)
+# Contribution to the second dimension
+fviz_contrib(test_famd, "var", axes = 2)
+
+#fviz_famd_ind(test_famd, col.ind = "tag_ID", 
+            # gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+            # repel = TRUE)
+```
+)
+
+
+
+

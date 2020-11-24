@@ -28,14 +28,21 @@ course_tags <- course_content_test %>%
   mutate(split_content_tags = str_split(content_tags, ",")) %>% 
   unnest(split_content_tags) %>%
   group_by(course_id) %>%
+  separate(split_content_tags, c("name","id_number"), sep =  "-") %>% 
+  mutate(name = toupper(name)) %>%
+  #---- filter out non-relevant tags
+  filter(name != "COURSE" & name != "ACADEMIC" & 
+           name != "EARN" & name != "SPEND" & name !="INFORMATION" &
+           name != "RESOURCES" & name != "NEW_CONTENT" & 
+           !endsWith(name, 'ONLY')) %>% #-- _only are the facility specific tags we don't want
   mutate(N = paste0('tag', row_number())) %>%
-  separate(split_content_tags, c("name","id_number"), sep =  "-") %>%
   pivot_wider(names_from='N', values_from= c("name", "id_number")) %>%
   mutate_at(vars(starts_with("name")), list(~na_if(.,""))) %>%
-  mutate_at(vars(starts_with('name')), function(x) as.factor(x))
+  mutate_at(vars(starts_with('name')), function(x) as.factor(x)) %>%
+  mutate_at(vars(starts_with('id_number')), function(x) as.factor(x))
 
 
-#---- filter out non-relevant tags
+
 
  
 #---- clustering just the courses using PAM + gower distance
@@ -43,7 +50,7 @@ course_tags <- course_content_test %>%
 #--- BUT !! issue: how do we weight things ?
 gower_dist <- daisy(course_tags %>%
                       select(lesson_count, total_page_count, total_page_item_count, 
-                             !!paste0('tag', 1:39, sep="")), 'gower')
+                             !!paste0('id_number_tag', 1:32, sep="")), 'gower')
 
 gower_mat <- as.matrix(gower_dist)
 
@@ -52,7 +59,7 @@ course_tags[which(gower_mat == min(gower_mat[gower_mat != min(gower_mat)]), arr.
 
 
 #print most dissimilar courses
-View(course_tags[which(gower_mat == max(gower_mat[gower_mat != max(gower_mat)]), arr.ind = TRUE)[1, ], ])
+course_tags[which(gower_mat == max(gower_mat[gower_mat != max(gower_mat)]), arr.ind = TRUE)[1, ], ]
 
 
   sil_width <- c(NA)
@@ -65,7 +72,7 @@ View(course_tags[which(gower_mat == max(gower_mat[gower_mat != max(gower_mat)]),
        ylab = "Silhouette Width")
   lines(1:20, sil_width)
   
-  k <- 15
+  k <- 16
   pam_fit <- pam(gower_dist, diss = TRUE, k)
   pam_results <- course_tags %>%
     ungroup() %>% 
@@ -100,12 +107,14 @@ View(course_tags[which(gower_mat == max(gower_mat[gower_mat != max(gower_mat)]),
                                        created_at,
                                        updated_at_1)
   
+  #--- only taking the top 5 tags
   course_tags <- course_tags %>% select(course_id, lesson_count, total_page_count,
-                                        total_page_item_count,!!paste0('tag', 1:5, sep=""))
+                                        total_page_item_count,!!paste0('id_number_tag', 1:5, sep=""))
     
   inmate_courses <- course_tags %>%
     left_join(course_inmates, by=c("course_id")) %>% 
-    select(!!paste0('tag', 1:5, sep=""), inmate_id, course_id, total_points, total_spent_points, language, updated_at_1) %>%
+    select(!!paste0('id_number_tag', 1:5, sep=""), inmate_id, course_id, total_points, total_spent_points,
+           language, updated_at_1) %>%
     group_by(inmate_id) %>%
     arrange(desc(updated_at_1)) %>%
     summarise_all(funs(toString(na.omit(.)))) %>%
@@ -113,11 +122,11 @@ View(course_tags[which(gower_mat == max(gower_mat[gower_mat != max(gower_mat)]),
     as_tibble      %>% # convert to table
     purrr::modify(~replace(.x,lengths(.x)==0,list(NA))) %>% # replace empty elements by list(NA) so they have length 1 too
     modify_if(~all(lengths(.x)==1),unlist) %>%
-    separate('tag1', paste("tag1", 'course', 1:10, sep="_"), sep=",", extra="drop") %>%
-    separate('tag2', paste("tag2", 'course', 1:10, sep="_"), sep=",", extra="drop") %>%
-    separate('tag3', paste("tag3", 'course', 1:10, sep="_"), sep=",", extra="drop") %>%
-    separate('tag4', paste("tag4", 'course',1:10, sep="_"), sep=",", extra="drop") %>%
-    separate('tag5', paste("tag5", 'course', 1:10, sep="_"), sep=",", extra="drop") %>%
+    separate('id_number_tag1', paste("id_number_tag1", 'course', 1:10, sep="_"), sep=",", extra="drop") %>%
+    separate('id_number_tag2', paste("id_number_tag2", 'course', 1:10, sep="_"), sep=",", extra="drop") %>%
+    separate('id_number_tag3', paste("id_number_tag3", 'course', 1:10, sep="_"), sep=",", extra="drop") %>%
+    separate('id_number_tag4', paste("id_number_tag4", 'course',1:10, sep="_"), sep=",", extra="drop") %>%
+    separate('id_number_tag5', paste("id_number_tag5", 'course', 1:10, sep="_"), sep=",", extra="drop") %>%
     mutate_all(as.factor) 
   
   gower_dist <- daisy(inmate_courses %>%
@@ -142,7 +151,7 @@ plot(1:20, sil_width,
      ylab = "Silhouette Width")
 lines(1:20, sil_width)
 
-k <- 15
+k <- 14
 pam_fit <- pam(gower_dist, diss = TRUE, k)
 pam_results <- inmate_courses %>%
   ungroup() %>% 
@@ -204,12 +213,12 @@ ggplot(aes(x = X, y = Y), data = tsne_data) +
     group_by(cluster)%>%
     summarise(mean_total_points = mean(total_points, na.rm=T),
               mean_spent_points= mean(total_spent_points, na.rm=T),
-              point_diff = mean_total_points - mean_spent_points,
+              point_diff = mean_total_points - mean_spent_points, # How many more points earned vs. spent?
               mean_age = mean(age, na.rm=T),
               mean_distinct_tags = mean(count_distinct_tags, na.rm=T),
-              most_common_tag1_course1 = modeest::mlv(tag1_course_1, method=mfv),
-              most_common_tag2_course1 = modeest::mlv(tag2_course_1, method=mfv),
-              most_common_tag1_course2 = modeest::mlv(tag1_course_2, method=mfv))
+              most_common_tag1_course1 = modeest::mlv(id_number_tag1_course_1, method=mfv),
+              most_common_tag2_course1 = modeest::mlv(id_number_tag2_course_1, method=mfv),
+              most_common_tag1_course2 = modeest::mlv(id_number_tag1_course_2, method=mfv))
   
   
   for_plot <-inmate_demo_with_clustering  %>% group_by(cluster,facility_id) %>%
@@ -237,7 +246,7 @@ ggplot(aes(x = X, y = Y), data = tsne_data) +
     filter(status=='ACTIVE')
   
   
-  test <- inmate_courses %>%
+  top_tags_per_inmate<- inmate_courses %>%
     ungroup() %>% 
     mutate(cluster = pam_fit$clustering) %>%
     group_by(cluster) %>%
@@ -248,15 +257,15 @@ ggplot(aes(x = X, y = Y), data = tsne_data) +
   
   
   
-  distinct_tags <- test %>%
-    select(starts_with('tag')) %>%
+  distinct_tags <-top_tags_per_inmate %>%
+    select(starts_with('id_number_tag')) %>%
     rowwise() %>%
     do(data.frame(., count_distinct_tags = n_distinct(unlist(.))))
   
-  test$count_distinct_tags <- distinct_tags$count_distinct_tags
+  top_tags_per_inmate$count_distinct_tags <- distinct_tags$count_distinct_tags
   
   #avg number of points + age per cluster
-  test %>% 
+  top_tags_per_inmate %>% 
     #left_join(distinct_tags %>% select(inmate_id, count_distinct_tags)) %>%
     group_by(cluster)%>%
     summarise(mean_total_points = mean(total_points, na.rm=T),
@@ -265,9 +274,9 @@ ggplot(aes(x = X, y = Y), data = tsne_data) +
               mean_age = mean(age, na.rm=T),
               mean_user_time  =mean(user_time, na.rm=T),
               mean_distinct_tags = mean(count_distinct_tags, na.rm=T),
-              most_common_tag1_course1 = modeest::mlv(tag1_course_1, method=mfv),
-              most_common_tag2_course1 = modeest::mlv(tag2_course_1, method=mfv),
-              most_common_tag1_course2 = modeest::mlv(tag1_course_2, method=mfv))
+              most_common_tag1_course1 = modeest::mlv(id_number_tag1_course_1, method=mfv),
+              most_common_tag2_course1 = modeest::mlv(id_number_tag2_course_1, method=mfv),
+              most_common_tag1_course2 = modeest::mlv(id_number_tag1_course_2, method=mfv))
   
   
   
@@ -296,55 +305,48 @@ ggplot(aes(x = X, y = Y), data = tsne_data) +
 
   
   #-- List, each element a tibble representing a quantile
-  course_inmates <- course_inmates %>%
-    mutate(quantile = ntile(user_time, 5)) %>% group_by(quantile) %>% 
+  course_inmates <- top_tags_per_inmate %>%
+    mutate(quantile = ntile(user_time, 5)) %>% 
+    group_by(quantile) %>% 
     group_map( ~ .x)
   
   course_tags <- course_tags %>% select(course_id, lesson_count, total_page_count,
-                                        total_page_item_count,!!paste0('tag', 1:5, sep=""))
+                                        total_page_item_count,!!paste0('id_number_tag', 1:5, sep="")) %>%
+    mutate(course_id = as.factor(course_id))
   
   
   
-  #--- takes in a quantiles tib + performs clustering
-  
-  
-  perform_clustering <- function(quant_tib){
+  #--- takes in a quantiles of active users + performs clustering
+  #--- only looking at the top 5 tags 
+perform_clustering <- function(quant_tib){
     inmate_courses <- course_tags %>%
       left_join(quant_tib, by=c("course_id")) %>% 
-      select(!!paste0('tag', 1:5, sep=""), inmate_id, course_id, total_points, total_spent_points, user_time) %>%
+      select(!!paste0('id_number_tag', 1:5, sep=""), inmate_id, course_id, total_points, total_spent_points, user_time) %>%
       group_by(inmate_id) %>%
       mutate_at(vars(contains('tag')), funs(toString(na.omit((.))))) %>%
-      #select(!!paste0('tag', 1:5, sep="")) %>%
       purrr::modify(~replace(.x,lengths(.x)==0,list(NA))) %>% # replace empty elements by list(NA) so they have length 1 too
       modify_if(~all(lengths(.x)==1),unlist) %>%
-      separate('tag1', paste("tag1", 'course', 1:10, sep="_"), sep=",", extra="drop") %>%
-      separate('tag2', paste("tag2", 'course', 1:10, sep="_"), sep=",", extra="drop") %>%
-      separate('tag3', paste("tag3", 'course', 1:10, sep="_"), sep=",", extra="drop") %>%
-      separate('tag4', paste("tag4", 'course',1:10, sep="_"), sep=",", extra="drop") %>%
-      separate('tag5', paste("tag5", 'course', 1:10, sep="_"), sep=",", extra="drop") %>%
+      separate('id_number_tag1', paste("id_number_tag1", 'course', 1:10, sep="_"), sep=",", extra="drop") %>%
+      separate('id_number_tag2', paste("id_number_tag2", 'course', 1:10, sep="_"), sep=",", extra="drop") %>%
+      separate('id_number_tag3', paste("id_number_tag3", 'course', 1:10, sep="_"), sep=",", extra="drop") %>%
+      separate('id_number_tag4', paste("id_number_tag4", 'course',1:10, sep="_"), sep=",", extra="drop") %>%
+      separate('id_number_tag5', paste("id_number_tag5", 'course', 1:10, sep="_"), sep=",", extra="drop") %>%
       mutate_at(vars(contains("tag")), as.factor) %>%
       mutate_if(is.double, as.numeric)
     
     gower_dist <- daisy(inmate_courses %>%
                           select(-course_id, -inmate_id), 'gower')
     gower_mat <- as.matrix(gower_dist)
-    #' Print most similar courses
-    print(inmate_courses[which(gower_mat == min(gower_mat[gower_mat != min(gower_mat)]), arr.ind = TRUE)[1, ], ])
-    
-    
-    #print most dissimilar courses
-    print(inmate_courses[which(gower_mat == max(gower_mat[gower_mat != max(gower_mat)]), arr.ind = TRUE)[1, ], ])
   
-    k <- 10
+  
+    k <- 10 #--- TODO: you could look at siloutte plot and pick out optimal k for each quantile?? 
     pam_fit <- pam(gower_dist, diss = TRUE, k)
     pam_results <- inmate_courses %>%
       ungroup() %>% 
       mutate(cluster = pam_fit$clustering) %>%
       group_by(cluster) %>%
       do(the_summary = summary(.))
-    pam_results$the_summary
-    
-    
+  
     
     # looking at lower dimensional space
     tsne_obj <- Rtsne(gower_dist, is_distance = TRUE)
@@ -370,83 +372,89 @@ ggplot(aes(x = X, y = Y), data = tsne_data) +
 
   
 #----- new Clustering based on total pages
-
-tags_with_parsed_json <- read_csv('clustering_datasets/new_joined_tags.csv') %>% select(-X1) %>%
-  mutate(tag_ID = as.factor(tag_ID), 
-         course_id = as.factor(course_id),
-         how_many_id = as.factor(how_many_id)) 
-
-
-tags_with_parsed_json2 <- tags_with_parsed_json%>%
-  #---- need to impute median values for any sort of numeric feature
-  mutate_if(is.numeric, list(~ replace(., is.na(.), median(., na.rm = TRUE))))
-
-
-
-gower_dist <- daisy(tags_with_parsed_json2 %>%
-                      select(course_id,lesson_count, total_page_count, tag_ID), 'gower')
-
-gower_mat <- as.matrix(gower_dist)
-#' Print most similar courses
-tags_with_parsed_json2[which(gower_mat == min(gower_mat[gower_mat != min(gower_mat)]), 
-                             arr.ind = TRUE)[1, ],]
-
-
-
-sil_width <- c(NA)
-for(i in 2:20){  
-  pam_fit <- pam(gower_dist, diss = TRUE, k = i)  
-  sil_width[i] <- pam_fit$silinfo$avg.width  
-}
-plot(1:20, sil_width,
-     xlab = "Number of clusters",
-     ylab = "Silhouette Width")
-lines(1:20, sil_width)
-
-k <- 50
-pam_fit <- pam(gower_dist, diss = TRUE, k)
-pam_results <- tags_with_parsed_json2 %>%
-  ungroup() %>% 
-  mutate(cluster = pam_fit$clustering) %>%
-  group_by(cluster) %>%
-  do(the_summary = summary(.))
-pam_results$the_summary
-
-
-# looking at lower dimensional space
-tsne_obj <- Rtsne(gower_dist, is_distance = TRUE)
-tsne_data <- tsne_obj$Y %>%
-  data.frame() %>%
-  setNames(c("X", "Y")) %>%
-  mutate(cluster = factor(pam_fit$clustering))
-ggplot(aes(x = X, y = Y), data = tsne_data) +
-  geom_point(aes(color = cluster))
+#---- new_joined_tags.csv comes from parsing_json.R
+  tags_with_parsed_json <- read_csv('clustering_datasets/new_joined_tags.csv') %>% select(-X1) %>%
+    mutate(tag_ID = as.factor(tag_ID), 
+           course_id = as.factor(course_id),
+           how_many_id = as.factor(how_many_id)) 
+  
+  
+  tags_with_parsed_json2 <- tags_with_parsed_json%>%
+    #---- need to impute median values for any sort of numeric feature
+    mutate_if(is.numeric, list(~ replace(., is.na(.), median(., na.rm = TRUE))))
+  
+  
+  
+  gower_dist <- daisy(tags_with_parsed_json2 %>%
+                        select(course_id,lesson_count, total_page_count, tag_ID,
+                               total_pages), 'gower')
+  
+  gower_mat <- as.matrix(gower_dist)
+  
+  # print most similar tags!
+  tags_with_parsed_json[which(gower_mat == min(gower_mat[gower_mat != min(gower_mat)]), 
+                               arr.ind = TRUE)[1, ],]
+  
+  
+  
+  sil_width <- c(NA)
+  for(i in 2:20){  
+    pam_fit <- pam(gower_dist, diss = TRUE, k = i)  
+    sil_width[i] <- pam_fit$silinfo$avg.width  
+  }
+  
+  plot(1:20, sil_width,
+       xlab = "Number of clusters",
+       ylab = "Silhouette Width")
+  lines(1:20, sil_width)
+  
+  k <- 2
+  pam_fit <- pam(gower_dist, diss = TRUE, k)
+  pam_results <- tags_with_parsed_json2 %>%
+    ungroup() %>% 
+    mutate(cluster = pam_fit$clustering) %>%
+    group_by(cluster) %>%
+    do(the_summary = summary(.))
+  pam_results$the_summary
 
 
-#---- a clustering of courses using PCA -> kmeans
+  # looking at lower dimensional space
+  tsne_obj <- Rtsne(gower_dist, is_distance = TRUE)
+  tsne_data <- tsne_obj$Y %>%
+    data.frame() %>%
+    setNames(c("X", "Y")) %>%
+    mutate(cluster = factor(pam_fit$clustering))
+  ggplot(aes(x = X, y = Y), data = tsne_data) +
+    geom_point(aes(color = cluster))
 
 
-#--- get principal components for mixed data types 
 
-tags_with_parsed_json <- tags_with_parsed_json %>% 
-  pivot_wider(id_col='course_id',names_from="how_many_id", values_from='tag_ID') #going to do PCA
+# Clustering and PCA ------------------------------------------------------
 
-test <-PCAmixdata::splitmix(as.data.frame(tags_with_parsed_json[,1:12]))
-X1 <- test$X.quanti 
-X2 <- test$X.quali %>% select(-course_type)
-res.pcamix <- PCAmix(X.quanti=X1, X.quali=X2,rename.level=TRUE,
-                     graph=FALSE)
-
-
-#---- uh this is reallybad lol
-plot(res.pcamix,choice="sqload",coloring.var=T, leg=TRUE,
-     posleg="topright", main="All variables")
+  #--- get principal components for mixed data types 
+  
+  tags_with_parsed_json <- tags_with_parsed_json %>% 
+    pivot_wider(id_cols=c('course_id', 'total_page_count'),
+                names_from="how_many_id", values_from=c('tag_ID')) #going to do PCA
+  
+  test_df <- as.data.frame(course_tags %>% select(lesson_count, total_page_count, total_page_item_count,starts_with("id_number")))
+  test_df <- test_df[,colSums(is.na(test_df))<nrow(test_df)]
+  test <-PCAmixdata::splitmix(test_df[,1:25])
+  X1 <- test$X.quanti 
+  X2 <- test$X.quali 
+  res.pcamix <- PCAmix(X.quanti=X1, X.quali=X2,  rename.level=TRUE,
+                       graph=FALSE)
+  
+  
+  #---- uh this is really bad lol, like horrifically bad
+  plot(res.pcamix,choice="sqload",coloring.var=T, leg=TRUE,
+       posleg="topright", main="All variables")
 
 
 
 #---- Kprototypes clustering!!
 
-  tags_with_parsed_json <- read_csv('new_joined_tags.csv') %>% select(-X1) %>%
+  tags_with_parsed_json <- read_csv('clustering_datasets/new_joined_tags.csv') %>% select(-X1) %>%
     mutate(tag_ID = as.factor(tag_ID), 
            course_id = as.factor(course_id),
            how_many_id = as.factor(how_many_id),
@@ -454,12 +462,12 @@ plot(res.pcamix,choice="sqload",coloring.var=T, leg=TRUE,
     select(-course_type, -json_id, -name,
            -description, -created_at, -updated_at, -system)
   
-  k_proto_object <- kproto(as.data.frame(tags_with_parsed_json),12,
+  k_proto_object <- kproto(as.data.frame(tags_with_parsed_json), 12,
                            lambda = 10000) # bigger lambda: partitions that emphasize differences between the categorical features,
   k_proto_object$centers
 
 
-#--- omit NAs-- attach column for p
+#--- omit NAs-- attach column
   tags_with_parsed_json2 <- na.omit(tags_with_parsed_json)
   tags_with_parsed_json2$cluster <- k_proto_object$cluster
   
@@ -468,20 +476,20 @@ plot(res.pcamix,choice="sqload",coloring.var=T, leg=TRUE,
     plot(as.data.frame(tags_with_parsed_json2%>% select_if(is.numeric))[,1:i], 
          col=tags_with_parsed_json2$cluster, main="K-prototypes")
   }
-
-#--- Elbow Method for finding the optimal number of clusters
-  set.seed(123)
   
-  # Compute and plot wss for k = 2 to k = 15.
-  k.max <- 20
-  wss <- sapply(1:k.max, 
-                function(k){kproto(as.data.frame(tags_with_parsed_json2), k)$tot.withinss})
-  wss
-  plot(1:k.max, wss,
-       type="b", pch = 19, frame = FALSE, 
-       xlab="Number of clusters K",
-       ylab="Total within-clusters sum of squares")
-  
+  #--- Elbow Method for finding the optimal number of clusters
+    set.seed(123)
+    
+    # Compute and plot wss for k = 2 to k = 15.
+    k.max <- 20
+    wss <- sapply(1:k.max, 
+                  function(k){kproto(as.data.frame(tags_with_parsed_json2), k)$tot.withinss})
+    wss
+    plot(1:k.max, wss,
+         type="b", pch = 19, frame = FALSE, 
+         xlab="Number of clusters K",
+         ylab="Total within-clusters sum of squares")
+    
 
 
 #--- What Features are the most important?

@@ -1,3 +1,0 @@
-"0","contact_graph_Yakima <- igraph::graph_from_data_frame(contacts_for_igraph_Yakima)
-"
-"2","In `d' `NA' elements were replaced with string ""NA"""

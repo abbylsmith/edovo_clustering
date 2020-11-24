@@ -1,8 +1,8 @@
 ##############################################################
 # this takes in the json navmap with information about total_pages
 # uses it in clustering_analysis.R
-
 ##############################################################
+
 library(data.tree)
 library(jsonlite)
 library(tidyverse)
@@ -19,8 +19,9 @@ default_map<- as.Node(default_map)
 
 
 parsed_json <- default_map %>%
-  ToDataFrameTable(json_id='id', 'title', parent_ID= function(x) x$parentId, tag_ID = 'tags', course_type='type',
-                                          total_pages = 'total') %>% 
+  ToDataFrameTable(json_id='id', 'title', parent_ID = function(x) x$parentId, 
+                   tag_ID = 'tags', course_type='type',
+                   total_pages = 'total') %>% 
   distinct()
 
 
@@ -55,26 +56,42 @@ coalesce_join <- function(x, y,
 course_content_test <- read_csv('clustering_datasets/course_tags_with_IDS.csv')
 
 #--- same as in clustering_analysis.R
+
 course_tags <- course_content_test %>% 
   mutate(split_content_tags = str_split(content_tags, ",")) %>% 
   unnest(split_content_tags) %>%
   group_by(course_id) %>%
+  separate(split_content_tags, c("name","id_number"), sep =  "-") %>% 
+  mutate(name =toupper(name)) %>%
+  #---- filter out non-relevant tags
+  filter(name != "COURSE" & name != "ACADEMIC" & 
+           name != "EARN" & name != "SPEND" & name !="INFORMATION" &
+           name != "RESOURCES" & name != "NEW_CONTENT" & 
+          !endsWith(name, 'ONLY')) %>% #-- _only are the facility specific tags we don't want
   mutate(N = paste0('tag', row_number())) %>%
-  separate(split_content_tags, c("name","id_number"), sep =  "-") %>%
   pivot_wider(names_from='N', values_from= c("name", "id_number")) %>%
   mutate_at(vars(starts_with("name")), list(~na_if(.,""))) %>%
-  mutate_at(vars(starts_with('name')), function(x) as.factor(x))
+  mutate_at(vars(starts_with('name')), function(x) as.factor(x)) %>%
+  mutate_at(vars(starts_with('id_number')), function(x) as.factor(x))
 
 #--- XLSX with tag information from Mike
 content_tags_test <- read.xlsx('clustering_datasets/content_tags.xlsx', sheetIndex =1) %>%
-  as_tibble() %>% mutate(tag_ID = id) %>% 
+  as_tibble() %>%
+  mutate(name =toupper(name)) %>%
+  #---- filter out non-relevant tags
+  filter(name != "COURSE" & name != "ACADEMIC" & 
+           name != "EARN" & name != "SPEND" & name !="INFORMATION" &
+           name != "RESOURCES" & name != "NEW_CONTENT" & 
+           !endsWith(name, 'ONLY')) %>% #-- _only are the facility specific tags we don't want
+  mutate(tag_ID = id) %>% 
   select(-id)
 
 course_tags_with_json <- course_tags %>% select(-starts_with('name')) %>%
   pivot_longer(cols=starts_with('id'), names_to='how_many_id', values_to ='tag_ID')%>%
   full_join(parsed_json , by= "tag_ID") %>% 
-  mutate(tag_ID = as.numeric(tag_ID), name = title) %>% 
-  select(-title)
+  mutate(tag_ID = as.numeric(tag_ID),
+         name = title.y) %>% 
+  select(-title.y)
 
 
 for_clustering <-coalesce_join(course_tags_with_json,

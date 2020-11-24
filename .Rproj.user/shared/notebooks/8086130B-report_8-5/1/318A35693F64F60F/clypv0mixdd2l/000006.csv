@@ -1,9 +1,0 @@
-"0","igraph_test <- graph_from_data_frame(contacts_for_igraph)
-"
-"2","In `d' `NA' elements were replaced with string ""NA"""
-"0","igraph_test <- graph_from_data_frame(contacts_for_igraph)"
-"2","In `d' `NA' elements were replaced with string ""NA"""
-"0","## ------------------------------------------------------------------------"
-"0","sna_g <- igraph::get.adjacency(giantGraph, sparse=FALSE) %>% network::as.network.matrix()"
-"2","Error in ""igraph"" %in% class(graph) : object 'giantGraph' not found
-"
